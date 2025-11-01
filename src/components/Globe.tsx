@@ -1,8 +1,9 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Sphere, Line } from '@react-three/drei';
+import { OrbitControls, Sphere, Line, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
+import { Button } from '@/components/ui/button';
 
 interface CountryProperties {
   name: string;
@@ -148,14 +149,24 @@ function EarthGlobe({
 
   return (
     <group ref={groupRef}>
-      {/* Globe sphere */}
+      {/* Globe sphere with enhanced appearance */}
       <Sphere ref={globeRef} args={[radius, 64, 64]}>
         <meshStandardMaterial
-          color="#0a0202"
-          roughness={0.9}
-          metalness={0.1}
-          emissive="#1a0505"
-          emissiveIntensity={0.3}
+          color="#0f0404"
+          roughness={0.7}
+          metalness={0.3}
+          emissive="#2a0808"
+          emissiveIntensity={0.5}
+        />
+      </Sphere>
+      
+      {/* Glow effect layer */}
+      <Sphere args={[radius + 0.02, 64, 64]}>
+        <meshBasicMaterial
+          color="#ff0000"
+          transparent
+          opacity={0.1}
+          side={THREE.BackSide}
         />
       </Sphere>
       
@@ -209,8 +220,19 @@ function EarthGlobe({
 
 export default function Globe({ onCountrySelect }: { onCountrySelect: (name: string) => void }) {
   const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleCountryClick = (name: string) => {
+    setSelectedCountry(name);
+  };
+
+  const handleConfirmSelection = () => {
+    if (selectedCountry) {
+      onCountrySelect(selectedCountry);
+    }
+  };
 
   useEffect(() => {
     fetch('/countries.json')
@@ -229,7 +251,7 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
   }, []);
 
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative w-full h-screen bg-[#000000]">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
           <p className="text-xs text-primary text-glow tracking-wider">LOADING WORLD MAP...</p>
@@ -237,15 +259,28 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
       )}
       
       <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
-        <ambientLight intensity={0.2} />
-        <pointLight position={[10, 10, 10]} intensity={0.8} color="#ff0000" />
-        <pointLight position={[-10, -10, -10]} intensity={0.4} color="#660000" />
-        <directionalLight position={[5, 5, 5]} intensity={0.5} color="#ff3333" />
+        <color attach="background" args={['#000000']} />
+        
+        {/* Starfield background */}
+        <Stars 
+          radius={100} 
+          depth={50} 
+          count={5000} 
+          factor={4} 
+          saturation={0} 
+          fade 
+          speed={0.5}
+        />
+        
+        <ambientLight intensity={0.3} />
+        <pointLight position={[10, 10, 10]} intensity={1} color="#ff0000" />
+        <pointLight position={[-10, -10, -10]} intensity={0.5} color="#660000" />
+        <directionalLight position={[5, 5, 5]} intensity={0.6} color="#ff3333" />
         
         <EarthGlobe 
           countries={countries}
           onCountryHover={setHoveredCountry} 
-          onCountrySelect={onCountrySelect} 
+          onCountrySelect={handleCountryClick} 
         />
         
         <OrbitControls
@@ -260,6 +295,24 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
       {hoveredCountry && (
         <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-card/90 border-2 border-primary px-6 py-3 text-glow animate-fade-in z-20">
           <p className="text-xs text-primary tracking-wider">{hoveredCountry}</p>
+        </div>
+      )}
+      
+      {selectedCountry && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-20">
+          <div className="bg-card/95 border-2 border-primary px-8 py-4 animate-scale-in">
+            <p className="text-xs text-center">
+              <span className="text-muted-foreground">SELECTED:</span>
+              <br />
+              <span className="text-primary text-glow text-sm mt-1 inline-block">{selectedCountry}</span>
+            </p>
+          </div>
+          <Button 
+            onClick={handleConfirmSelection}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 border-2 border-primary px-8 py-6 text-xs tracking-wider font-bold animate-pulse-glow"
+          >
+            CONFIRM SELECTION
+          </Button>
         </div>
       )}
     </div>
