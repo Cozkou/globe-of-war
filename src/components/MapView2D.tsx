@@ -299,36 +299,16 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
                 />
                 
-                {/* Degree markers */}
-                {degrees.map((deg) => {
-                  const rad = (deg * Math.PI) / 180;
-                  const x = cx + Math.sin(rad) * (radarRadius + 10);
-                  const y = cy - Math.cos(rad) * (radarRadius + 10);
-                  return (
-                    <text
-                      key={`deg-${deg}`}
-                      x={x}
-                      y={y}
-                      fill="#00ff00"
-                      fontSize="8"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      opacity="0.5"
-                    >
-                      {deg}
-                    </text>
-                  );
-                })}
-                
                 {/* Enhanced rotating sweep with fade trail */}
                 <defs>
                   <radialGradient id="sweepTrailGradient">
-                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0.8" />
-                    <stop offset="50%" stopColor="#00ff00" stopOpacity="0.3" />
+                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0.7" />
+                    <stop offset="30%" stopColor="#00ff00" stopOpacity="0.4" />
+                    <stop offset="60%" stopColor="#00ff00" stopOpacity="0.2" />
                     <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
                   </radialGradient>
                   <filter id="sweepGlow">
-                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
                     <feMerge>
                       <feMergeNode in="coloredBlur"/>
                       <feMergeNode in="SourceGraphic"/>
@@ -336,11 +316,11 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </filter>
                 </defs>
                 
-                {/* Sweep arc with gradient fade */}
+                {/* Sweep arc trail (behind the line) */}
                 <path
-                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * Math.sin(Math.PI / 3)} ${cy - radarRadius * Math.cos(Math.PI / 3)} Z`}
+                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * Math.sin(Math.PI / 2)} ${cy - radarRadius * Math.cos(Math.PI / 2)} Z`}
                   fill="url(#sweepTrailGradient)"
-                  opacity="0.6"
+                  opacity="0.5"
                   filter="url(#sweepGlow)"
                 >
                   <animateTransform
@@ -348,28 +328,28 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                     type="rotate"
                     from={`0 ${cx} ${cy}`}
                     to={`360 ${cx} ${cy}`}
-                    dur="3s"
+                    dur="4s"
                     repeatCount="indefinite"
                   />
                 </path>
                 
-                {/* Primary sweep line */}
+                {/* Primary sweep line (in front) */}
                 <line
                   x1={cx}
                   y1={cy}
                   x2={cx}
                   y2={cy - radarRadius}
                   stroke="#00ff00"
-                  strokeWidth="1.5"
+                  strokeWidth="2"
                   opacity="1"
-                  style={{ filter: "drop-shadow(0 0 4px #00ff00)" }}
+                  style={{ filter: "drop-shadow(0 0 6px #00ff00)" }}
                 >
                   <animateTransform
                     attributeName="transform"
                     type="rotate"
                     from={`0 ${cx} ${cy}`}
                     to={`360 ${cx} ${cy}`}
-                    dur="3s"
+                    dur="4s"
                     repeatCount="indefinite"
                   />
                 </line>
