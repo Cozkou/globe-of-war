@@ -36,7 +36,7 @@ function convertCoordinatesToVectors(coordinates: number[][], radius: number): T
   }).filter((v): v is THREE.Vector3 => v !== null);
 }
 
-function CountryBorder({ 
+function CountryRegion({ 
   coordinates, 
   radius, 
   countryName, 
@@ -55,28 +55,69 @@ function CountryBorder({
     const vectors = convertCoordinatesToVectors(coordinates, radius + 0.002);
     return vectors.length > 1 ? vectors : [];
   }, [coordinates, radius]);
+
+  // Create a filled mesh geometry for the entire country area
+  const geometry = useMemo(() => {
+    if (points.length < 3) return null;
+    
+    const geo = new THREE.BufferGeometry();
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    
+    // Add all points as vertices
+    points.forEach(point => {
+      vertices.push(point.x, point.y, point.z);
+    });
+    
+    // Create triangles using fan triangulation
+    for (let i = 1; i < points.length - 1; i++) {
+      indices.push(0, i, i + 1);
+    }
+    
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    
+    return geo;
+  }, [points]);
   
   if (points.length < 2) return null;
   
   return (
-    <Line
-      points={points}
-      color={isHovered ? "#ff0000" : "#cc0000"}
-      lineWidth={isHovered ? 2.5 : 1.5}
-      transparent
-      opacity={isHovered ? 1 : 0.7}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        onHover(countryName);
-      }}
-      onPointerOut={() => {
-        onHover(null);
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(countryName);
-      }}
-    />
+    <group>
+      {/* Invisible mesh for hover/click detection over entire country */}
+      {geometry && (
+        <mesh 
+          geometry={geometry}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            onHover(countryName);
+          }}
+          onPointerOut={() => {
+            onHover(null);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(countryName);
+          }}
+        >
+          <meshBasicMaterial
+            transparent
+            opacity={0}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      )}
+      
+      {/* Visible border line */}
+      <Line
+        points={points}
+        color={isHovered ? "#ff0000" : "#cc0000"}
+        lineWidth={isHovered ? 2.5 : 1.5}
+        transparent
+        opacity={isHovered ? 1 : 0.7}
+      />
+    </group>
   );
 }
 
@@ -125,7 +166,7 @@ function EarthGlobe({
         
         if (geometry.type === 'Polygon') {
           return geometry.coordinates.map((ring, ringIndex) => (
-            <CountryBorder
+            <CountryRegion
               key={`${countryName}-${index}-${ringIndex}`}
               coordinates={ring as number[][]}
               radius={radius}
@@ -138,7 +179,7 @@ function EarthGlobe({
         } else if (geometry.type === 'MultiPolygon') {
           return geometry.coordinates.map((polygon, polyIndex) => 
             polygon.map((ring, ringIndex) => (
-              <CountryBorder
+              <CountryRegion
                 key={`${countryName}-${index}-${polyIndex}-${ringIndex}`}
                 coordinates={ring as number[][]}
                 radius={radius}
