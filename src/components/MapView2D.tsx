@@ -307,21 +307,13 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                     <stop offset="60%" stopColor="#00ff00" stopOpacity="0.2" />
                     <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
                   </radialGradient>
-                  <filter id="sweepGlow">
-                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
                 </defs>
                 
-                {/* Sweep arc trail (behind the line) */}
+                {/* Sweep arc trail (behind the line) - drawn FIRST */}
                 <path
-                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * Math.sin(Math.PI / 2)} ${cy - radarRadius * Math.cos(Math.PI / 2)} Z`}
+                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 0 ${cx - radarRadius * Math.sin(Math.PI * 0.4)} ${cy - radarRadius * Math.cos(Math.PI * 0.4)} Z`}
                   fill="url(#sweepTrailGradient)"
-                  opacity="0.5"
-                  filter="url(#sweepGlow)"
+                  opacity="0.4"
                 >
                   <animateTransform
                     attributeName="transform"
@@ -333,7 +325,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   />
                 </path>
                 
-                {/* Primary sweep line (in front) */}
+                {/* Primary sweep line (in front) - drawn LAST */}
                 <line
                   x1={cx}
                   y1={cy}
