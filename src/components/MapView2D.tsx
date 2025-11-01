@@ -50,13 +50,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const convertCoordinatesToPath = (coordinates: number[][], width: number, height: number): string => {
     if (coordinates.length === 0) return '';
     
-    // Check if this polygon crosses the antimeridian (wraps around the world)
-    const lngs = coordinates.map(coord => coord[0]);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    
-    // Skip polygons that span more than 180 degrees (likely wrapping artifacts)
-    if (maxLng - minLng > 180) return '';
+    // Check for artifacts: consecutive points that jump more than 170 degrees
+    // This filters out rendering glitches while keeping legitimate countries like Russia
+    for (let i = 1; i < coordinates.length; i++) {
+      const [lng1] = coordinates[i - 1];
+      const [lng2] = coordinates[i];
+      if (Math.abs(lng2 - lng1) > 170) {
+        return ''; // This is likely an artifact
+      }
+    }
     
     const pathParts = coordinates.map((coord, index) => {
       const [lng, lat] = coord;
