@@ -119,10 +119,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <path
           key={`${countryName}-${index}`}
           d={path}
-          fill={isSelected ? "#8b0000" : "#0a2040"}
-          stroke={isSelected ? "#ff3333" : "#ff3333"}
-          strokeWidth={isSelected ? 2 : 0.5}
-          strokeOpacity={isSelected ? 1 : 0.3}
+          fill="none"
+          stroke="#ff3333"
+          strokeWidth={isSelected ? 2.5 : 1.2}
+          strokeOpacity={isSelected ? 1 : 0.6}
           className={isSelected ? "animate-pulse" : ""}
           style={isSelected ? {
             filter: "drop-shadow(0 0 8px #ff3333)"
@@ -156,13 +156,13 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           className="w-full h-full"
           style={{ maxHeight: '100%', maxWidth: '100%' }}
         >
-          {/* Transparent background */}
-          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="transparent" />
+          {/* Blue ocean background */}
+          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="#0a2040" />
           
-          {/* Subtle grid overlay */}
+          {/* Subtle grid overlay - matching 3D globe style */}
           <defs>
-            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="hsl(0, 50%, 15%)" strokeWidth="0.3" opacity="0.3"/>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff3333" strokeWidth="0.5" opacity="0.15"/>
             </pattern>
           </defs>
           <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="url(#grid)" />
