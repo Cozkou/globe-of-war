@@ -24,13 +24,13 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         }}
       />
       
-      <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
-        <div className="space-y-6 text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow leading-tight px-4">
-            WAR PROTOCOL
+      <div className={`flex flex-col items-center gap-12 ${isAnimating ? 'fly-up' : ''}`}>
+        <div className="space-y-8 text-center">
+          <h1 className="text-5xl md:text-7xl lg:text-9xl text-primary text-glow leading-none px-4 font-bold drop-shadow-[0_0_15px_rgba(255,0,0,0.8)]">
+            WAR<br/>PROTOCOL
           </h1>
           
-          <p className="text-xs md:text-sm text-muted-foreground tracking-widest px-4">
+          <p className="text-sm md:text-base lg:text-lg text-foreground tracking-[0.3em] px-4 opacity-90">
             SELECT YOUR NATION. PREPARE FOR WAR.
           </p>
         </div>
@@ -39,7 +39,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
           onClick={handleStart}
           variant="default"
           size="lg"
-          className="mt-8 px-8 py-6 text-sm tracking-wider bg-primary hover:bg-war-glow border-2 border-war-glow text-primary-foreground transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,0,0,0.5)]"
+          className="mt-12 px-12 py-8 text-base md:text-lg tracking-widest bg-primary hover:bg-war-glow border-2 border-war-glow text-primary-foreground transition-all hover:scale-110 hover:shadow-[0_0_30px_rgba(255,0,0,0.7)] font-bold"
         >
           SELECT COUNTRY
         </Button>
