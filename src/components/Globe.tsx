@@ -36,7 +36,7 @@ function convertCoordinatesToVectors(coordinates: number[][], radius: number): T
   }).filter((v): v is THREE.Vector3 => v !== null);
 }
 
-function CountryRegion({ 
+function CountryBorder({ 
   coordinates, 
   radius, 
   countryName, 
@@ -56,55 +56,27 @@ function CountryRegion({
     return vectors.length > 1 ? vectors : [];
   }, [coordinates, radius]);
   
-  const geometry = useMemo(() => {
-    if (points.length < 3) return null;
-    
-    const shape = new THREE.Shape();
-    const first = points[0];
-    
-    // Create a shape from the points
-    shape.moveTo(first.x, first.y);
-    for (let i = 1; i < points.length; i++) {
-      shape.lineTo(points[i].x, points[i].y);
-    }
-    shape.closePath();
-    
-    return new THREE.ShapeGeometry(shape);
-  }, [points]);
-  
   if (points.length < 2) return null;
   
   return (
-    <group>
-      {/* Invisible mesh for hover/click detection */}
-      {geometry && (
-        <mesh
-          geometry={geometry}
-          onPointerOver={(e) => {
-            e.stopPropagation();
-            onHover(countryName);
-          }}
-          onPointerOut={() => {
-            onHover(null);
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onSelect(countryName);
-          }}
-        >
-          <meshBasicMaterial transparent opacity={0} />
-        </mesh>
-      )}
-      
-      {/* Visible border line */}
-      <Line
-        points={points}
-        color={isHovered ? "#ff0000" : "#cc0000"}
-        lineWidth={isHovered ? 2.5 : 1.5}
-        transparent
-        opacity={isHovered ? 1 : 0.7}
-      />
-    </group>
+    <Line
+      points={points}
+      color={isHovered ? "#ff0000" : "#cc0000"}
+      lineWidth={isHovered ? 2.5 : 1.5}
+      transparent
+      opacity={isHovered ? 1 : 0.7}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHover(countryName);
+      }}
+      onPointerOut={() => {
+        onHover(null);
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(countryName);
+      }}
+    />
   );
 }
 
@@ -153,7 +125,7 @@ function EarthGlobe({
         
         if (geometry.type === 'Polygon') {
           return geometry.coordinates.map((ring, ringIndex) => (
-            <CountryRegion
+            <CountryBorder
               key={`${countryName}-${index}-${ringIndex}`}
               coordinates={ring as number[][]}
               radius={radius}
@@ -166,7 +138,7 @@ function EarthGlobe({
         } else if (geometry.type === 'MultiPolygon') {
           return geometry.coordinates.map((polygon, polyIndex) => 
             polygon.map((ring, ringIndex) => (
-              <CountryRegion
+              <CountryBorder
                 key={`${countryName}-${index}-${polyIndex}-${ringIndex}`}
                 coordinates={ring as number[][]}
                 radius={radius}
