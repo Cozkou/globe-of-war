@@ -1,83 +1,8 @@
-import { useState, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Sphere, Stars, Text } from '@react-three/drei';
-import * as THREE from 'three';
+import { useState } from 'react';
 import { Button } from './ui/button';
 
 interface LandingScreenProps {
   onStart: () => void;
-}
-
-function SpinningGlobe() {
-  const globeRef = useRef<THREE.Mesh>(null);
-  const groupRef = useRef<THREE.Group>(null);
-  
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.003;
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      {/* Main globe */}
-      <Sphere ref={globeRef} args={[1.5, 64, 64]}>
-        <meshStandardMaterial
-          color="#0a2040"
-          roughness={0.7}
-          metalness={0.2}
-          emissive="#051a35"
-          emissiveIntensity={0.5}
-        />
-      </Sphere>
-      
-      {/* Atmosphere glow */}
-      <Sphere args={[1.52, 64, 64]}>
-        <meshBasicMaterial
-          color="#ff3333"
-          transparent
-          opacity={0.15}
-          side={THREE.BackSide}
-        />
-      </Sphere>
-      
-      {/* Grid overlay */}
-      <Sphere args={[1.51, 32, 32]}>
-        <meshBasicMaterial
-          color="#ff3333"
-          wireframe
-          transparent
-          opacity={0.2}
-        />
-      </Sphere>
-
-      {/* Title text on globe */}
-      <Text
-        position={[0, 0.3, 1.6]}
-        fontSize={0.22}
-        color="#ff3333"
-        anchorX="center"
-        anchorY="middle"
-        letterSpacing={0.15}
-      >
-        SKYTRACK
-      </Text>
-
-      {/* Subtitle text on globe */}
-      <Text
-        position={[0, -0.1, 1.6]}
-        fontSize={0.07}
-        color="#999999"
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={2.5}
-        textAlign="center"
-        letterSpacing={0.05}
-      >
-        REAL-TIME GLOBAL{'\n'}AIRCRAFT TRACKING
-      </Text>
-    </group>
-  );
 }
 
 export default function LandingScreen({ onStart }: LandingScreenProps) {
@@ -91,7 +16,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-black">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-background">
       {/* CRT scanlines effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -99,46 +24,29 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         }}
       />
       
-      <div className={`flex flex-col items-center gap-12 w-full ${isAnimating ? 'fly-up' : ''}`}>
-        {/* 3D Globe Scene */}
-        <div className="w-full h-[500px] md:h-[600px]">
-          <Canvas camera={{ position: [0, 0, 4], fov: 50 }}>
-            <color attach="background" args={['#000000']} />
-            
-            {/* Starfield */}
-            <Stars 
-              radius={100} 
-              depth={50} 
-              count={3000} 
-              factor={4} 
-              saturation={0} 
-              fade 
-              speed={0.5}
-            />
-            
-            {/* Lighting */}
-            <ambientLight intensity={0.5} />
-            <pointLight position={[10, 10, 10]} intensity={2} color="#ff0000" />
-            <pointLight position={[-10, -10, -10]} intensity={1} color="#ff3333" />
-            <directionalLight position={[5, 0, 5]} intensity={1.5} color="#ffffff" />
-            
-            <SpinningGlobe />
-          </Canvas>
+      <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
+        <div className="space-y-6 text-center">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary leading-tight px-4 tracking-[0.3em]">
+            SKYTRACK
+          </h1>
+          
+          <p className="text-xs md:text-sm text-muted-foreground tracking-widest px-4">
+            REAL-TIME GLOBAL AIRCRAFT TRACKING
+          </p>
         </div>
         
-        {/* Button below globe */}
         <Button
           onClick={handleStart}
           variant="default"
           size="lg"
-          className="px-8 py-6 text-sm tracking-wider bg-primary hover:bg-primary/90 border-2 border-primary text-primary-foreground transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,0,0,0.5)] z-10"
+          className="mt-8 px-8 py-6 text-sm tracking-wider bg-primary hover:bg-war-glow border-2 border-war-glow text-primary-foreground transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,0,0,0.5)]"
         >
           SELECT COUNTRY
         </Button>
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider z-10">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider">
         WLDN x Builder's Brew | HackTheBurgh 2025 ©
       </div>
 
