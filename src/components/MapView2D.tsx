@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Slider } from './ui/slider';
-import { HelpCircle, Play, Pause, SkipBack } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { feature } from 'topojson-client';
 
 interface MapView2DProps {
@@ -22,34 +22,6 @@ interface GeoJSONFeature {
   };
 }
 
-interface AttackVector {
-  from: string;
-  to: string;
-  strength: number;
-}
-
-interface WarEvent {
-  id: string;
-  timestamp: number;
-  type: 'invasion' | 'battle' | 'aerial_assault' | 'naval_assault' | 'nuclear_strike';
-  attacker: string;
-  defender: string;
-  intensity: number;
-  duration: number;
-  attackVectors: AttackVector[];
-}
-
-interface WarSimulation {
-  metadata: {
-    name: string;
-    description: string;
-    startYear: number;
-    endYear: number;
-    totalDuration: number;
-  };
-  events: WarEvent[];
-}
-
 interface ActiveAttack {
   id: string;
   fromCountry: string;
@@ -57,42 +29,27 @@ interface ActiveAttack {
   fromCoords: [number, number];
   toCoords: [number, number];
   startTime: number;
-  type: string;
+  type: 'invasion' | 'battle' | 'aerial_assault' | 'naval_assault' | 'nuclear_strike';
   strength: number;
-  phase: 'launch' | 'travel' | 'impact';
-}
-
-interface OccupiedTerritory {
-  country: string;
-  occupier: string;
-  intensity: number;
-  startTime: number;
 }
 
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [warSimulation, setWarSimulation] = useState<WarSimulation | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState([1]);
+  const [warIntensity, setWarIntensity] = useState([0]);
   const [activeAttacks, setActiveAttacks] = useState<ActiveAttack[]>([]);
-  const [occupiedTerritories, setOccupiedTerritories] = useState<OccupiedTerritory[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/countries.json').then(res => res.json()),
-      fetch('/war-simulation.json').then(res => res.json())
-    ])
-      .then(([topology, simulation]) => {
+    fetch('/countries.json')
+      .then(response => response.json())
+      .then((topology: any) => {
         const countriesObject = topology.objects.countries;
         const geojson: any = feature(topology, countriesObject);
         setCountries(geojson.features as GeoJSONFeature[]);
-        setWarSimulation(simulation);
         setIsLoading(false);
       })
       .catch(error => {
-        console.error('Error loading data:', error);
+        console.error('Error loading country data:', error);
         setIsLoading(false);
       });
   }, []);
@@ -119,92 +76,62 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return centroids;
   }, [countries]);
 
-  // Timeline playback
+  // War attack generation based on intensity
   useEffect(() => {
-    if (!isPlaying || !warSimulation) return;
+    if (warIntensity[0] === 0) {
+      setActiveAttacks([]);
+      return;
+    }
+
+    const countryNames = Object.keys(countryCentroids);
+    if (countryNames.length < 2) return;
+
+    const attackTypes: ActiveAttack['type'][] = ['invasion', 'battle', 'aerial_assault', 'naval_assault'];
+    
+    // Add nuclear strikes at very high intensity
+    if (warIntensity[0] > 90) {
+      attackTypes.push('nuclear_strike');
+    }
 
     const interval = setInterval(() => {
-      setCurrentTime((prev) => {
-        const next = prev + (0.1 * playbackSpeed[0]);
-        return next >= warSimulation.metadata.totalDuration ? 0 : next;
+      const numAttacks = Math.floor(warIntensity[0] / 15) + 1;
+      const newAttacks: ActiveAttack[] = [];
+
+      for (let i = 0; i < numAttacks; i++) {
+        const isFromSelected = Math.random() < 0.4;
+        const fromCountry = isFromSelected 
+          ? selectedCountry 
+          : countryNames[Math.floor(Math.random() * countryNames.length)];
+        
+        let toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
+        while (toCountry === fromCountry) {
+          toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
+        }
+
+        if (countryCentroids[fromCountry] && countryCentroids[toCountry]) {
+          const attackType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
+          newAttacks.push({
+            id: `attack-${Date.now()}-${i}`,
+            fromCountry,
+            toCountry,
+            fromCoords: countryCentroids[fromCountry],
+            toCoords: countryCentroids[toCountry],
+            startTime: Date.now(),
+            type: attackType,
+            strength: Math.floor(Math.random() * 30) + 70,
+          });
+        }
+      }
+
+      setActiveAttacks((prev) => {
+        const now = Date.now();
+        const filtered = prev.filter((attack) => now - attack.startTime < 3000);
+        return [...filtered, ...newAttacks];
       });
-    }, 100);
+    }, Math.max(200, 1200 - warIntensity[0] * 8));
 
     return () => clearInterval(interval);
-  }, [isPlaying, playbackSpeed, warSimulation]);
-
-  // Process war events based on current timeline
-  useEffect(() => {
-    if (!warSimulation || !countryCentroids) return;
-
-    const activeEvents = warSimulation.events.filter(
-      (event) => currentTime >= event.timestamp && currentTime < event.timestamp + event.duration
-    );
-
-    // Generate attacks from active events
-    const newAttacks: ActiveAttack[] = [];
-    const newOccupations: OccupiedTerritory[] = [];
-
-    activeEvents.forEach((event) => {
-      event.attackVectors.forEach((vector) => {
-        if (countryCentroids[vector.from] && countryCentroids[vector.to]) {
-          const attackId = `${event.id}-${vector.from}-${vector.to}`;
-          
-          // Check if this attack already exists
-          const existingAttack = activeAttacks.find(a => a.id === attackId);
-          if (!existingAttack) {
-            newAttacks.push({
-              id: attackId,
-              fromCountry: vector.from,
-              toCountry: vector.to,
-              fromCoords: countryCentroids[vector.from],
-              toCoords: countryCentroids[vector.to],
-              startTime: Date.now(),
-              type: event.type,
-              strength: vector.strength,
-              phase: 'launch',
-            });
-          }
-        }
-      });
-
-      // Mark territories as occupied during invasions
-      if (event.type === 'invasion') {
-        newOccupations.push({
-          country: event.defender,
-          occupier: event.attacker,
-          intensity: event.intensity,
-          startTime: currentTime,
-        });
-      }
-    });
-
-    setActiveAttacks((prev) => {
-      const now = Date.now();
-      const filtered = prev.filter((attack) => now - attack.startTime < 3000);
-      return [...filtered, ...newAttacks];
-    });
-
-    setOccupiedTerritories((prev) => {
-      const updated = [...prev];
-      newOccupations.forEach((occ) => {
-        const existing = updated.findIndex((o) => o.country === occ.country);
-        if (existing >= 0) {
-          updated[existing] = occ;
-        } else {
-          updated.push(occ);
-        }
-      });
-      return updated;
-    });
-  }, [currentTime, warSimulation, countryCentroids]);
-
-  const resetSimulation = () => {
-    setCurrentTime(0);
-    setIsPlaying(false);
-    setActiveAttacks([]);
-    setOccupiedTerritories([]);
-  };
+  }, [warIntensity, countryCentroids, selectedCountry]);
 
   // Convert lat/lng to SVG coordinates using Equirectangular projection
   const projectToSVG = (lng: number, lat: number, width: number, height: number) => {
@@ -263,7 +190,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const renderCountry = (country: GeoJSONFeature, width: number, height: number) => {
     const countryName = country.properties.name;
     const isSelected = countryName === selectedCountry;
-    const occupation = occupiedTerritories.find((occ) => occ.country === countryName);
     const { geometry } = country;
     
     const allPaths: string[] = [];
@@ -280,25 +206,19 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       });
     }
     
-    const fillOpacity = occupation ? Math.min(occupation.intensity / 100 * 0.4, 0.4) : 0;
-    const fillColor = occupation ? "#ff0000" : "none";
-
     return allPaths
       .filter(path => path !== '')
       .map((path, index) => (
         <path
           key={`${countryName}-${index}`}
           d={path}
-          fill={fillColor}
-          fillOpacity={fillOpacity}
+          fill="none"
           stroke="#ff3333"
           strokeWidth={isSelected ? 2.5 : 1.2}
           strokeOpacity={isSelected ? 1 : 0.6}
-          className={isSelected || occupation ? "animate-pulse" : ""}
+          className={isSelected ? "animate-pulse" : ""}
           style={isSelected ? {
             filter: "drop-shadow(0 0 8px #ff3333)"
-          } : occupation ? {
-            filter: "drop-shadow(0 0 4px #ff0000)"
           } : {}}
         />
       ));
@@ -570,52 +490,22 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* Timeline controls */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[600px] bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={resetSimulation}
-              className="border border-primary hover:bg-primary/20"
-            >
-              <SkipBack className="h-4 w-4 text-primary" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="border border-primary hover:bg-primary/20"
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4 text-primary" />
-              ) : (
-                <Play className="h-4 w-4 text-primary" />
-              )}
-            </Button>
-            <div className="flex-1 text-center">
-              <p className="text-xs text-primary tracking-wider text-glow">
-                {warSimulation ? `${warSimulation.metadata.startYear + Math.floor(currentTime / 12)} - MONTH ${Math.floor(currentTime % 12) + 1}` : 'LOADING...'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
-              SPEED
-            </p>
-            <Slider
-              value={playbackSpeed}
-              onValueChange={setPlaybackSpeed}
-              min={0.5}
-              max={5}
-              step={0.5}
-              className="flex-1"
-            />
-            <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
-              {playbackSpeed[0]}x
-            </p>
-          </div>
+      {/* War intensity slider */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-96 bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
+        <div className="flex items-center gap-4">
+          <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
+            WAR INTENSITY
+          </p>
+          <Slider
+            value={warIntensity}
+            onValueChange={setWarIntensity}
+            max={100}
+            step={1}
+            className="flex-1"
+          />
+          <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
+            {warIntensity[0]}%
+          </p>
         </div>
       </div>
     </div>
