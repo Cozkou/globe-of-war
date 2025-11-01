@@ -32,9 +32,18 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Start the development servers
+# In one terminal, start the frontend:
 npm run dev
+
+# In another terminal, start the backend API server:
+npm run dev:server
+
+# Or run the backend in production mode:
+npm run server
 ```
+
+**Note:** The backend server runs on `http://localhost:3001` by default. See `server/README.md` for detailed backend documentation.
 
 **Edit a file directly in GitHub**
 
@@ -54,11 +63,19 @@ npm run dev
 
 This project is built with:
 
+**Frontend:**
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
+- React Three Fiber (3D Globe visualization)
+
+**Backend:**
+- Express.js (REST API server)
+- TypeScript
+- OpenSky Network API integration
+- In-memory caching system
 
 ## How can I deploy this project?
 

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "tsx watch server/src/index.ts",
+    "server": "tsx server/src/index.ts",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -63,7 +65,9 @@
     "three": "^0.160.1",
     "topojson-client": "^3.1.0",
     "vaul": "^0.9.9",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "express": "^4.21.1",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -71,6 +75,9 @@
     "@types/node": "^22.16.5",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "tsx": "^4.19.2",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.32.0",
