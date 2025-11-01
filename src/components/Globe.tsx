@@ -316,13 +316,18 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
 
   return (
     <div className="relative w-full h-screen bg-[#000000]">
+      {/* Header */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30">
+        <h2 className="text-lg md:text-xl text-primary tracking-[0.3em]">SELECT COUNTRY</h2>
+      </div>
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
           <p className="text-xs text-primary text-glow tracking-wider">LOADING WORLD MAP...</p>
         </div>
       )}
       
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0.3, 5], fov: 45 }}>
         <color attach="background" args={['#000000']} />
         
         {/* Starfield background */}

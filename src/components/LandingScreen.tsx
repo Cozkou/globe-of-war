@@ -26,7 +26,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       
       <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
         <div className="space-y-6 text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow-subtle leading-tight px-4 tracking-[0.3em]">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary leading-tight px-4 tracking-[0.3em]">
             SKYTRACK
           </h1>
           
@@ -47,7 +47,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* Footer */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider">
-        WLDN | HackTheBurgh 2025 ©
+        WLDN x Builder's Brew
       </div>
 
       {/* Red glow at bottom */}
