@@ -254,6 +254,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             
             const pathId = `missile-${idx}`;
             const missileDelay = `${idx * 0.8}s`;
+            const missileDuration = 3 - warLevel * 0.3;
+            const explosionStart = parseFloat(missileDelay) + missileDuration;
             
             return (
               <g key={`conflict-${enemyCountry}-${idx}`}>
@@ -307,7 +309,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       style={{ filter: `drop-shadow(0 0 ${warLevel * 3}px ${warLevel >= 4 ? "#ff0000" : "#ffff00"})` }}
                     >
                       <animateMotion
-                        dur={`${3 - warLevel * 0.3}s`}
+                        dur={`${missileDuration}s`}
                         repeatCount="indefinite"
                         begin={missileDelay}
                       >
@@ -337,7 +339,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                           from="5"
                           to={warLevel >= 5 ? "40" : "25"}
                           dur="1.5s"
-                          begin={`${parseFloat(missileDelay) + 2.7 + ringIdx * 0.2}s`}
+                          begin={`${explosionStart + ringIdx * 0.2}s`}
                           repeatCount="indefinite"
                         />
                         <animate
@@ -345,7 +347,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                           from="0.9"
                           to="0"
                           dur="1.5s"
-                          begin={`${parseFloat(missileDelay) + 2.7 + ringIdx * 0.2}s`}
+                          begin={`${explosionStart + ringIdx * 0.2}s`}
                           repeatCount="indefinite"
                         />
                       </circle>
@@ -364,7 +366,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                         attributeName="opacity"
                         values="0;1;0"
                         dur="0.3s"
-                        begin={`${parseFloat(missileDelay) + 2.7}s`}
+                        begin={`${explosionStart}s`}
                         repeatCount="indefinite"
                       />
                     </circle>
@@ -392,7 +394,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                             from={x2}
                             to={px}
                             dur="1s"
-                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            begin={`${explosionStart}s`}
                             repeatCount="indefinite"
                           />
                           <animate
@@ -400,14 +402,14 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                             from={y2}
                             to={py}
                             dur="1s"
-                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            begin={`${explosionStart}s`}
                             repeatCount="indefinite"
                           />
                           <animate
                             attributeName="opacity"
                             values="0;0.8;0"
                             dur="1s"
-                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            begin={`${explosionStart}s`}
                             repeatCount="indefinite"
                           />
                         </circle>
@@ -571,48 +573,26 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </radialGradient>
                 </defs>
                 
-                {/* Multiple sweep trails for higher levels */}
-                {Array.from({ length: warLevel }).map((_, idx) => (
-                  <path
-                    key={`sweep-${idx}`}
-                    d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 0 ${cx - radarRadius * Math.sin(Math.PI * 0.4)} ${cy - radarRadius * Math.cos(Math.PI * 0.4)} Z`}
-                    fill="url(#sweepTrailGradient)"
-                    opacity={0.4 / (idx + 1)}
-                  >
-                    <animateTransform
-                      attributeName="transform"
-                      type="rotate"
-                      from={`${idx * (360 / warLevel)} ${cx} ${cy}`}
-                      to={`${360 + idx * (360 / warLevel)} ${cx} ${cy}`}
-                      dur={`${5 - warLevel}s`}
-                      repeatCount="indefinite"
-                    />
-                  </path>
-                ))}
-                
-                {/* Primary sweep lines (in front) - drawn LAST */}
-                {Array.from({ length: warLevel }).map((_, idx) => (
-                  <line
-                    key={`line-${idx}`}
-                    x1={cx}
-                    y1={cy}
-                    x2={cx}
-                    y2={cy - radarRadius}
-                    stroke={warLevel >= 4 ? "#ff0000" : "#00ff00"}
-                    strokeWidth={1 + warLevel * 0.3}
-                    opacity="1"
-                    style={{ filter: `drop-shadow(0 0 ${4 + warLevel * 2}px ${warLevel >= 4 ? "#ff0000" : "#00ff00"})` }}
-                  >
-                    <animateTransform
-                      attributeName="transform"
-                      type="rotate"
-                      from={`${idx * (360 / warLevel)} ${cx} ${cy}`}
-                      to={`${360 + idx * (360 / warLevel)} ${cx} ${cy}`}
-                      dur={`${5 - warLevel}s`}
-                      repeatCount="indefinite"
-                    />
-                  </line>
-                ))}
+                {/* Single rotating sweep line */}
+                <line
+                  x1={cx}
+                  y1={cy}
+                  x2={cx}
+                  y2={cy - radarRadius}
+                  stroke="#00ff00"
+                  strokeWidth="2"
+                  opacity="0.9"
+                  style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
+                >
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from={`0 ${cx} ${cy}`}
+                    to={`360 ${cx} ${cy}`}
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                </line>
                 
                 {/* Center dot */}
                 <circle
