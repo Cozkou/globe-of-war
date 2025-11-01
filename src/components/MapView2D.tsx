@@ -236,7 +236,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     const distance = Math.sqrt(dx * dx + dy * dy);
     
     // Create curved path for missiles
-    const curvature = distance * 0.2;
+    const curvature = distance * 0.25;
     const midX = (x1 + x2) / 2 - (dy / distance) * curvature;
     const midY = (y1 + y2) / 2 + (dx / distance) * curvature;
     const pathData = `M ${x1},${y1} Q ${midX},${midY} ${x2},${y2}`;
@@ -245,76 +245,162 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       case 'nuclear_strike':
         return (
           <g key={attack.id}>
+            {/* Missile trail with glow */}
             <path
               d={pathData}
               fill="none"
               stroke="url(#nuclearGradient)"
-              strokeWidth="3"
-              opacity="0.9"
-              style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
+              strokeWidth="4"
+              opacity="0.95"
+              style={{ filter: "drop-shadow(0 0 12px #00ff00)" }}
             >
-              <animate attributeName="stroke-dasharray" from="0,1000" to="1000,0" dur="1.5s" fill="freeze" />
-              <animate attributeName="opacity" from="1" to="0" begin="1.5s" dur="0.5s" fill="freeze" />
+              <animate attributeName="stroke-dasharray" from="0,1000" to="1000,0" dur="1.2s" fill="freeze" />
+              <animate attributeName="opacity" from="1" to="0" begin="1.2s" dur="0.3s" fill="freeze" />
             </path>
-            <circle cx={x2} cy={y2} r="0" fill="#ffff00" opacity="0">
-              <animate attributeName="r" from="0" to="30" begin="1.5s" dur="0.3s" fill="freeze" />
-              <animate attributeName="opacity" values="0;1;1;0" begin="1.5s" dur="1s" fill="freeze" />
+            {/* Missile head */}
+            <circle r="4" fill="#ffff00" opacity="0.95">
+              <animateMotion path={pathData} dur="1.2s" fill="freeze" />
+              <animate attributeName="opacity" from="0.95" to="0" begin="1.2s" dur="0.1s" fill="freeze" />
             </circle>
-            <circle cx={x2} cy={y2} r="30" fill="none" stroke="#ff0000" strokeWidth="3" opacity="0">
-              <animate attributeName="r" from="30" to="60" begin="1.8s" dur="0.5s" fill="freeze" />
-              <animate attributeName="opacity" values="0;1;0" begin="1.8s" dur="0.5s" fill="freeze" />
+            {/* Initial flash */}
+            <circle cx={x2} cy={y2} r="0" fill="#ffffff" opacity="0">
+              <animate attributeName="r" from="0" to="50" begin="1.2s" dur="0.2s" fill="freeze" />
+              <animate attributeName="opacity" values="0;1;0" begin="1.2s" dur="0.2s" fill="freeze" />
             </circle>
+            {/* Main nuclear explosion */}
+            <circle cx={x2} cy={y2} r="0" fill="#ffaa00" opacity="0">
+              <animate attributeName="r" from="0" to="40" begin="1.4s" dur="0.4s" fill="freeze" />
+              <animate attributeName="opacity" values="0;1;0.8;0" begin="1.4s" dur="1.2s" fill="freeze" />
+            </circle>
+            {/* Secondary explosion ring */}
+            <circle cx={x2} cy={y2} r="40" fill="none" stroke="#ff0000" strokeWidth="4" opacity="0">
+              <animate attributeName="r" from="40" to="80" begin="1.8s" dur="0.6s" fill="freeze" />
+              <animate attributeName="opacity" values="0;1;0" begin="1.8s" dur="0.6s" fill="freeze" />
+            </circle>
+            {/* Shockwave */}
+            <circle cx={x2} cy={y2} r="80" fill="none" stroke="#ffff00" strokeWidth="2" opacity="0">
+              <animate attributeName="r" from="80" to="120" begin="2.2s" dur="0.5s" fill="freeze" />
+              <animate attributeName="opacity" values="0;0.7;0" begin="2.2s" dur="0.5s" fill="freeze" />
+            </circle>
+            {/* Debris particles */}
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
+              const rad = (angle * Math.PI) / 180;
+              const endX = x2 + Math.cos(rad) * 60;
+              const endY = y2 + Math.sin(rad) * 60;
+              return (
+                <line
+                  key={`debris-${angle}`}
+                  x1={x2}
+                  y1={y2}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#ff6600"
+                  strokeWidth="2"
+                  opacity="0"
+                >
+                  <animate attributeName="x2" from={x2} to={endX} begin="1.5s" dur="0.8s" fill="freeze" />
+                  <animate attributeName="y2" from={y2} to={endY} begin="1.5s" dur="0.8s" fill="freeze" />
+                  <animate attributeName="opacity" values="0;1;0" begin="1.5s" dur="0.8s" fill="freeze" />
+                </line>
+              );
+            })}
           </g>
         );
       
       case 'invasion':
         return (
           <g key={attack.id}>
-            {[0, 1, 2, 3, 4].map((i) => (
+            {/* Multiple attack waves */}
+            {[0, 1, 2, 3, 4, 5].map((i) => (
               <g key={`${attack.id}-wave-${i}`}>
                 <path
                   d={pathData}
                   fill="none"
                   stroke="#ff3333"
-                  strokeWidth="2"
-                  strokeDasharray="10,5"
-                  opacity="0.7"
-                  style={{ filter: "drop-shadow(0 0 4px #ff0000)" }}
+                  strokeWidth="2.5"
+                  strokeDasharray="8,4"
+                  opacity="0"
+                  style={{ filter: "drop-shadow(0 0 6px #ff0000)" }}
                 >
                   <animate
                     attributeName="stroke-dashoffset"
                     from="1000"
                     to="0"
-                    begin={`${i * 0.3}s`}
+                    begin={`${i * 0.25}s`}
+                    dur="1.8s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;0.9;0.9;0"
+                    begin={`${i * 0.25}s`}
                     dur="2s"
                     fill="freeze"
                   />
+                </path>
+                {/* Tank/unit marker */}
+                <rect
+                  x={x1 - 3}
+                  y={y1 - 3}
+                  width="6"
+                  height="6"
+                  fill="#ff0000"
+                  opacity="0"
+                >
+                  <animateMotion path={pathData} begin={`${i * 0.25}s`} dur="1.8s" fill="freeze" />
                   <animate
                     attributeName="opacity"
-                    from="0.7"
-                    to="0"
-                    begin={`${i * 0.3 + 1.7}s`}
+                    values="0;1;1;0"
+                    begin={`${i * 0.25}s`}
+                    dur="2s"
+                    fill="freeze"
+                  />
+                </rect>
+                {/* Impact burst */}
+                <circle cx={x2} cy={y2} r="0" fill="#ff3333" opacity="0">
+                  <animate
+                    attributeName="r"
+                    from="0"
+                    to="18"
+                    begin={`${i * 0.25 + 1.8}s`}
                     dur="0.3s"
                     fill="freeze"
                   />
-                </path>
-                <circle cx={x2} cy={y2} r="5" fill="#ff0000" opacity="0">
                   <animate
                     attributeName="opacity"
                     values="0;1;0"
-                    begin={`${i * 0.3 + 2}s`}
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="r"
-                    from="5"
-                    to="15"
-                    begin={`${i * 0.3 + 2}s`}
+                    begin={`${i * 0.25 + 1.8}s`}
                     dur="0.3s"
                     fill="freeze"
                   />
                 </circle>
+                {/* Smoke trail */}
+                {[0, 1, 2, 3].map((j) => (
+                  <circle
+                    key={`smoke-${j}`}
+                    cx={x2 - j * 15}
+                    cy={y2}
+                    r="4"
+                    fill="#666666"
+                    opacity="0"
+                  >
+                    <animate
+                      attributeName="r"
+                      from="4"
+                      to="10"
+                      begin={`${i * 0.25 + 1.5 + j * 0.1}s`}
+                      dur="0.6s"
+                      fill="freeze"
+                    />
+                    <animate
+                      attributeName="opacity"
+                      values="0;0.5;0"
+                      begin={`${i * 0.25 + 1.5 + j * 0.1}s`}
+                      dur="0.6s"
+                      fill="freeze"
+                    />
+                  </circle>
+                ))}
               </g>
             ))}
           </g>
@@ -323,22 +409,74 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       case 'aerial_assault':
         return (
           <g key={attack.id}>
+            {/* Flight path trail */}
             <path
               d={pathData}
               fill="none"
               stroke="url(#aerialGradient)"
-              strokeWidth="1.5"
-              opacity="0.8"
-            />
-            {[0, 1, 2].map((i) => (
-              <circle key={`bomb-${i}`} cx={x1} cy={y1} r="2" fill="#ff6600" opacity="0.9">
-                <animateMotion path={pathData} begin={`${i * 0.4}s`} dur="1.5s" fill="freeze" />
-                <animate attributeName="opacity" from="0.9" to="0" begin={`${i * 0.4 + 1.5}s`} dur="0.2s" fill="freeze" />
-              </circle>
+              strokeWidth="2"
+              strokeDasharray="20,10"
+              opacity="0.7"
+              style={{ filter: "drop-shadow(0 0 4px #ff6600)" }}
+            >
+              <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze" />
+              <animate attributeName="opacity" from="0.7" to="0" begin="1.5s" dur="0.3s" fill="freeze" />
+            </path>
+            {/* Multiple bombers */}
+            {[0, 0.3, 0.6].map((delay, i) => (
+              <g key={`bomber-${i}`}>
+                {/* Bomber */}
+                <polygon
+                  points="-4,0 4,0 0,-8"
+                  fill="#ff6600"
+                  opacity="0"
+                  style={{ filter: "drop-shadow(0 0 4px #ff3333)" }}
+                >
+                  <animateMotion path={pathData} begin={`${delay}s`} dur="1.5s" fill="freeze" />
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;1;0"
+                    begin={`${delay}s`}
+                    dur="1.8s"
+                    fill="freeze"
+                  />
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from={`0 0 0`}
+                    to={`${Math.atan2(dy, dx) * (180 / Math.PI)} 0 0`}
+                    dur="0.1s"
+                    fill="freeze"
+                  />
+                </polygon>
+                {/* Bombs */}
+                {[0, 0.2, 0.4].map((bombDelay, j) => (
+                  <circle
+                    key={`bomb-${j}`}
+                    r="2.5"
+                    fill="#ff3333"
+                    opacity="0"
+                  >
+                    <animateMotion path={pathData} begin={`${delay + bombDelay}s`} dur={`${1.5 - bombDelay}s`} fill="freeze" />
+                    <animate
+                      attributeName="opacity"
+                      values="0;1;1;0"
+                      begin={`${delay + bombDelay}s`}
+                      dur={`${1.8 - bombDelay}s`}
+                      fill="freeze"
+                    />
+                  </circle>
+                ))}
+              </g>
             ))}
+            {/* Continuous explosions */}
             <circle cx={x2} cy={y2} r="0" fill="#ff3333" opacity="0">
-              <animate attributeName="r" values="0;12;0" dur="0.4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0;0.8;0" dur="0.4s" repeatCount="indefinite" />
+              <animate attributeName="r" values="0;15;0" dur="0.5s" begin="0.8s" repeatCount="3" />
+              <animate attributeName="opacity" values="0;0.9;0" dur="0.5s" begin="0.8s" repeatCount="3" />
+            </circle>
+            <circle cx={x2} cy={y2} r="15" fill="none" stroke="#ff6600" strokeWidth="3" opacity="0">
+              <animate attributeName="r" values="15;30;45" dur="0.5s" begin="0.8s" repeatCount="3" />
+              <animate attributeName="opacity" values="0;0.8;0" dur="0.5s" begin="0.8s" repeatCount="3" />
             </circle>
           </g>
         );
@@ -346,54 +484,144 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       case 'naval_assault':
         return (
           <g key={attack.id}>
+            {/* Wave path */}
             <path
               d={pathData}
               fill="none"
               stroke="url(#navalGradient)"
-              strokeWidth="2.5"
-              strokeDasharray="15,10"
-              opacity="0.8"
-              style={{ filter: "drop-shadow(0 0 6px #0088ff)" }}
+              strokeWidth="3"
+              strokeDasharray="20,10"
+              opacity="0"
+              style={{ filter: "drop-shadow(0 0 8px #0088ff)" }}
             >
               <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="2s" fill="freeze" />
-              <animate attributeName="opacity" from="0.8" to="0" begin="2s" dur="0.3s" fill="freeze" />
+              <animate attributeName="opacity" values="0;0.9;0.9;0" dur="2.3s" fill="freeze" />
             </path>
-            <circle cx={x1} cy={y1} r="4" fill="#ffffff" opacity="0.9">
+            {/* Ship */}
+            <rect
+              x={-6}
+              y={-4}
+              width="12"
+              height="8"
+              fill="#0088ff"
+              opacity="0"
+              rx="2"
+              style={{ filter: "drop-shadow(0 0 4px #0088ff)" }}
+            >
               <animateMotion path={pathData} dur="2s" fill="freeze" />
-            </circle>
-            <circle cx={x2} cy={y2} r="0" fill="#0088ff" opacity="0">
-              <animate attributeName="r" from="0" to="20" begin="2s" dur="0.4s" fill="freeze" />
-              <animate attributeName="opacity" values="0;0.9;0" begin="2s" dur="0.4s" fill="freeze" />
-            </circle>
+              <animate
+                attributeName="opacity"
+                values="0;1;1;0"
+                dur="2.3s"
+                fill="freeze"
+              />
+            </rect>
+            {/* Naval bombardment */}
+            {[0, 0.4, 0.8, 1.2].map((delay, i) => (
+              <g key={`shell-${i}`}>
+                <ellipse rx="2" ry="3" fill="#ff6600" opacity="0">
+                  <animateMotion path={pathData} begin={`${delay}s`} dur={`${2 - delay}s`} fill="freeze" />
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;1;0"
+                    begin={`${delay}s`}
+                    dur={`${2.3 - delay}s`}
+                    fill="freeze"
+                  />
+                </ellipse>
+                <circle cx={x2} cy={y2} r="0" fill="#0088ff" opacity="0">
+                  <animate
+                    attributeName="r"
+                    from="0"
+                    to="22"
+                    begin={`${2 + delay * 0.5}s`}
+                    dur="0.4s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;0.9;0"
+                    begin={`${2 + delay * 0.5}s`}
+                    dur="0.4s"
+                    fill="freeze"
+                  />
+                </circle>
+              </g>
+            ))}
+            {/* Water splash effects */}
+            {[0, 60, 120, 180, 240, 300].map((angle) => {
+              const rad = (angle * Math.PI) / 180;
+              const splashX = x2 + Math.cos(rad) * 30;
+              const splashY = y2 + Math.sin(rad) * 30;
+              return (
+                <circle
+                  key={`splash-${angle}`}
+                  cx={x2}
+                  cy={y2}
+                  r="3"
+                  fill="#66ccff"
+                  opacity="0"
+                >
+                  <animate attributeName="cx" from={x2} to={splashX} begin="2s" dur="0.5s" fill="freeze" />
+                  <animate attributeName="cy" from={y2} to={splashY} begin="2s" dur="0.5s" fill="freeze" />
+                  <animate attributeName="opacity" values="0;0.8;0" begin="2s" dur="0.5s" fill="freeze" />
+                </circle>
+              );
+            })}
           </g>
         );
       
       default: // battle
         return (
           <g key={attack.id}>
+            {/* Battle line with energy pulses */}
             <line
               x1={x1}
               y1={y1}
               x2={x2}
               y2={y2}
               stroke="#ff0000"
-              strokeWidth="2"
-              opacity="0.6"
-              strokeDasharray="5,5"
-              style={{ filter: "drop-shadow(0 0 4px #ff0000)" }}
+              strokeWidth="3"
+              opacity="0"
+              strokeDasharray="10,5"
+              style={{ filter: "drop-shadow(0 0 6px #ff0000)" }}
             >
-              <animate attributeName="stroke-dashoffset" from="0" to="20" dur="0.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0.6;0.9;0.6" dur="1s" repeatCount="indefinite" />
+              <animate attributeName="stroke-dashoffset" from="0" to="30" dur="0.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.5s" fill="freeze" />
             </line>
+            {/* Energy pulses traveling both ways */}
+            {[0, 0.5, 1, 1.5].map((delay) => (
+              <circle key={`pulse-${delay}`} cx={x1} cy={y1} r="5" fill="#ff3333" opacity="0">
+                <animate attributeName="cx" from={x1} to={x2} begin={`${delay}s`} dur="0.8s" fill="freeze" />
+                <animate attributeName="cy" from={y1} to={y2} begin={`${delay}s`} dur="0.8s" fill="freeze" />
+                <animate
+                  attributeName="opacity"
+                  values="0;1;1;0"
+                  begin={`${delay}s`}
+                  dur="0.8s"
+                  fill="freeze"
+                />
+              </circle>
+            ))}
+            {/* Continuous small explosions at midpoint */}
+            <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r="0" fill="#ff6600" opacity="0">
+              <animate attributeName="r" values="0;12;0" dur="0.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0;0.9;0" dur="0.4s" repeatCount="indefinite" />
+            </circle>
           </g>
         );
     }
   };
 
   const shouldShake = activeAttacks.length > 5 || activeAttacks.some(a => a.type === 'nuclear_strike');
+  const hasNuclear = activeAttacks.some(a => a.type === 'nuclear_strike');
 
   return (
     <div className={`relative w-full h-screen bg-background overflow-hidden ${shouldShake ? 'animate-shake' : ''}`}>
+      {/* Nuclear flash overlay */}
+      {hasNuclear && (
+        <div className="absolute inset-0 bg-white pointer-events-none z-30 animate-pulse opacity-20" />
+      )}
       {/* Subtle scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -498,7 +726,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           </p>
           <Slider
             value={warIntensity}
-            onValueChange={setWarIntensity}
+            onValueChange={(value) => setWarIntensity(value)}
             max={100}
             step={1}
             className="flex-1"
