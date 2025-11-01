@@ -1,0 +1,29 @@
+{
+  "aircraft": [
+    { "id": "aircraft-1", "latitude": 51.5074, "longitude": -0.1278 },
+    { "id": "aircraft-2", "latitude": 40.7128, "longitude": -74.0060 },
+    { "id": "aircraft-3", "latitude": 35.6762, "longitude": 139.6503 },
+    { "id": "aircraft-4", "latitude": -33.8688, "longitude": 151.2093 },
+    { "id": "aircraft-5", "latitude": 48.8566, "longitude": 2.3522 },
+    { "id": "aircraft-6", "latitude": 55.7558, "longitude": 37.6173 },
+    { "id": "aircraft-7", "latitude": 39.9042, "longitude": 116.4074 },
+    { "id": "aircraft-8", "latitude": 1.3521, "longitude": 103.8198 },
+    { "id": "aircraft-9", "latitude": 19.4326, "longitude": -99.1332 },
+    { "id": "aircraft-10", "latitude": -23.5505, "longitude": -46.6333 },
+    { "id": "aircraft-11", "latitude": 30.0444, "longitude": 31.2357 },
+    { "id": "aircraft-12", "latitude": 41.9028, "longitude": 12.4964 },
+    { "id": "aircraft-13", "latitude": 52.5200, "longitude": 13.4050 },
+    { "id": "aircraft-14", "latitude": 28.6139, "longitude": 77.2090 },
+    { "id": "aircraft-15", "latitude": 37.7749, "longitude": -122.4194 },
+    { "id": "aircraft-16", "latitude": -34.6037, "longitude": -58.3816 },
+    { "id": "aircraft-17", "latitude": 25.2048, "longitude": 55.2708 },
+    { "id": "aircraft-18", "latitude": 45.4642, "longitude": 9.1900 },
+    { "id": "aircraft-19", "latitude": 59.3293, "longitude": 18.0686 },
+    { "id": "aircraft-20", "latitude": -1.2921, "longitude": 36.8219 },
+    { "id": "aircraft-21", "latitude": 33.8688, "longitude": 151.2093 },
+    { "id": "aircraft-22", "latitude": -15.7975, "longitude": -47.8919 },
+    { "id": "aircraft-23", "latitude": 6.5244, "longitude": 3.3792 },
+    { "id": "aircraft-24", "latitude": 13.7563, "longitude": 100.5018 },
+    { "id": "aircraft-25", "latitude": 31.2304, "longitude": 121.4737 }
+  ]
+}

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Slider } from './ui/slider';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Plane } from 'lucide-react';
 import { feature } from 'topojson-client';
 
 interface MapView2DProps {
@@ -33,11 +33,18 @@ interface ActiveAttack {
   strength: number;
 }
 
+interface Aircraft {
+  id: string;
+  latitude: number;
+  longitude: number;
+}
+
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [warIntensity, setWarIntensity] = useState([0]);
   const [activeAttacks, setActiveAttacks] = useState<ActiveAttack[]>([]);
+  const [aircraft, setAircraft] = useState<Aircraft[]>([]);
 
   useEffect(() => {
     fetch('/countries.json')
@@ -51,6 +58,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       .catch(error => {
         console.error('Error loading country data:', error);
         setIsLoading(false);
+      });
+
+    fetch('/aircraft-positions.json')
+      .then(response => response.json())
+      .then((data: { aircraft: Aircraft[] }) => {
+        setAircraft(data.aircraft);
+      })
+      .catch(error => {
+        console.error('Error loading aircraft data:', error);
       });
   }, []);
 
@@ -671,6 +687,22 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           
           {/* Active attacks */}
           {activeAttacks.map((attack) => getAttackVisual(attack))}
+          
+          {/* Aircraft positions */}
+          {aircraft.map((plane) => {
+            const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
+            return (
+              <g key={plane.id} transform={`translate(${x}, ${y})`}>
+                <circle cx="0" cy="0" r="8" fill="#ff0000" opacity="0.3" className="animate-pulse" />
+                <circle cx="0" cy="0" r="4" fill="#ff3333" opacity="0.8" />
+                <foreignObject x="-10" y="-10" width="20" height="20">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Plane size={14} color="#ffffff" fill="#ff0000" />
+                  </div>
+                </foreignObject>
+              </g>
+            );
+          })}
         </svg>
       </div>
 
