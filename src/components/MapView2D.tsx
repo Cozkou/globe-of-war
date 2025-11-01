@@ -50,6 +50,14 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const convertCoordinatesToPath = (coordinates: number[][], width: number, height: number): string => {
     if (coordinates.length === 0) return '';
     
+    // Check if this polygon crosses the antimeridian (wraps around the world)
+    const lngs = coordinates.map(coord => coord[0]);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    // Skip polygons that span more than 180 degrees (likely wrapping artifacts)
+    if (maxLng - minLng > 180) return '';
+    
     const pathParts = coordinates.map((coord, index) => {
       const [lng, lat] = coord;
       const [x, y] = projectToSVG(lng, lat, width, height);
@@ -78,19 +86,21 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       });
     }
     
-    return paths.map((path, index) => (
-      <path
-        key={`${countryName}-${index}`}
-        d={path}
-        fill={isSelected ? "hsl(0, 85%, 25%)" : "hsl(120, 15%, 15%)"}
-        stroke={isSelected ? "hsl(0, 100%, 50%)" : "hsl(0, 50%, 20%)"}
-        strokeWidth={isSelected ? 3 : 0.8}
-        className={isSelected ? "animate-pulse" : ""}
-        style={isSelected ? {
-          filter: "drop-shadow(0 0 8px hsl(0, 100%, 50%))"
-        } : {}}
-      />
-    ));
+    return paths
+      .filter(path => path !== '') // Filter out empty paths from antimeridian wrapping
+      .map((path, index) => (
+        <path
+          key={`${countryName}-${index}`}
+          d={path}
+          fill={isSelected ? "hsl(0, 85%, 25%)" : "hsl(120, 15%, 15%)"}
+          stroke={isSelected ? "hsl(0, 100%, 50%)" : "hsl(0, 50%, 20%)"}
+          strokeWidth={isSelected ? 3 : 0.8}
+          className={isSelected ? "animate-pulse" : ""}
+          style={isSelected ? {
+            filter: "drop-shadow(0 0 8px hsl(0, 100%, 50%))"
+          } : {}}
+        />
+      ));
   };
 
   const viewBoxWidth = 1000;
@@ -118,8 +128,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           className="w-full h-full"
           style={{ maxHeight: '100%', maxWidth: '100%' }}
         >
-          {/* Ocean background - dark like space */}
-          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="hsl(0, 0%, 8%)" />
+          {/* Transparent background */}
+          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="transparent" />
           
           {/* Subtle grid overlay */}
           <defs>
