@@ -26,12 +26,12 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       
       <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
         <div className="space-y-6 text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow leading-tight px-4 tracking-[0.3em]">
-            WAR PROTOCOL
+          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow-subtle leading-tight px-4 tracking-[0.3em]">
+            SKYTRACK
           </h1>
           
           <p className="text-xs md:text-sm text-muted-foreground tracking-widest px-4">
-            SELECT YOUR NATION. PREPARE FOR WAR.
+            REAL-TIME GLOBAL AIRCRAFT TRACKING
           </p>
         </div>
         
@@ -43,6 +43,11 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         >
           SELECT COUNTRY
         </Button>
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider">
+        WLDN | HackTheBurgh 2025 ©
       </div>
 
       {/* Red glow at bottom */}

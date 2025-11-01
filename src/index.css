@@ -66,6 +66,10 @@ All colors MUST be HSL.
     text-shadow: 0 0 10px hsl(var(--glow-red)), 0 0 20px hsl(var(--glow-red)), 0 0 30px hsl(var(--glow-red));
   }
 
+  .text-glow-subtle {
+    text-shadow: 0 0 5px hsl(var(--glow-red)), 0 0 10px hsl(var(--glow-red));
+  }
+
   .crt-effect {
     animation: flicker 0.15s infinite;
   }
