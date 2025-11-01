@@ -156,8 +156,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           className="w-full h-full"
           style={{ maxHeight: '100%', maxWidth: '100%' }}
         >
-          {/* Blue ocean background */}
-          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="#0a2040" />
+          {/* Subtle blue background with transparency */}
+          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="rgba(10, 32, 64, 0.2)" />
           
           {/* Subtle grid overlay - matching 3D globe style */}
           <defs>
