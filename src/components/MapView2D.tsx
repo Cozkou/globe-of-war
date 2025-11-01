@@ -33,6 +33,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [warLevel, setWarLevel] = useState(1);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
+  const [enemyCountries, setEnemyCountries] = useState<string[]>([]);
 
   useEffect(() => {
     fetch('/countries.json')
@@ -57,6 +58,19 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         console.error('Error loading aircraft data:', error);
       });
   }, []);
+
+  // Select random enemy countries based on war level
+  useEffect(() => {
+    if (countries.length === 0 || !selectedCountry) return;
+    
+    const availableCountries = countries
+      .map(c => c.properties.name)
+      .filter(name => name !== selectedCountry);
+    
+    const numEnemies = warLevel; // Level 1 = 1 enemy, Level 5 = 5 enemies
+    const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
+    setEnemyCountries(shuffled.slice(0, numEnemies));
+  }, [warLevel, countries, selectedCountry]);
 
   // Calculate country centroids for beam targeting
   const countryCentroids = useMemo(() => {
@@ -224,6 +238,254 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
+          
+          {/* Conflict visualizations between selected country and enemies */}
+          {selectedCountry && countryCentroids[selectedCountry] && enemyCountries.map((enemyCountry, idx) => {
+            if (!countryCentroids[enemyCountry]) return null;
+            
+            const [x1, y1] = projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight);
+            const [x2, y2] = projectToSVG(countryCentroids[enemyCountry][0], countryCentroids[enemyCountry][1], viewBoxWidth, viewBoxHeight);
+            
+            // Calculate control point for curved missile path
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const cx = x1 + dx / 2 - dy * 0.3;
+            const cy = y1 + dy / 2 + dx * 0.3;
+            
+            const pathId = `missile-${idx}`;
+            const missileDelay = `${idx * 0.8}s`;
+            
+            return (
+              <g key={`conflict-${enemyCountry}-${idx}`}>
+                {/* Level 1-2: Warning lines */}
+                {warLevel >= 1 && (
+                  <line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={warLevel === 1 ? "#ffaa00" : "#ff6600"}
+                    strokeWidth={warLevel === 1 ? "0.5" : "1"}
+                    strokeDasharray={warLevel === 1 ? "5,5" : "3,3"}
+                    opacity={warLevel === 1 ? 0.4 : 0.6}
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from="0"
+                      to="100"
+                      dur="2s"
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                )}
+                
+                {/* Level 2+: Curved missile trajectories */}
+                {warLevel >= 2 && (
+                  <>
+                    <defs>
+                      <path
+                        id={pathId}
+                        d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                        fill="none"
+                      />
+                    </defs>
+                    
+                    {/* Missile trail */}
+                    <path
+                      d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                      fill="none"
+                      stroke={warLevel >= 4 ? "#ff0000" : "#ff8800"}
+                      strokeWidth={warLevel >= 3 ? "2" : "1.5"}
+                      opacity="0.7"
+                      style={{ filter: `drop-shadow(0 0 ${warLevel * 2}px ${warLevel >= 4 ? "#ff0000" : "#ff8800"})` }}
+                    />
+                    
+                    {/* Animated missile */}
+                    <circle
+                      r={warLevel >= 4 ? "4" : "3"}
+                      fill={warLevel >= 4 ? "#ff0000" : "#ffff00"}
+                      style={{ filter: `drop-shadow(0 0 ${warLevel * 3}px ${warLevel >= 4 ? "#ff0000" : "#ffff00"})` }}
+                    >
+                      <animateMotion
+                        dur={`${3 - warLevel * 0.3}s`}
+                        repeatCount="indefinite"
+                        begin={missileDelay}
+                      >
+                        <mpath href={`#${pathId}`} />
+                      </animateMotion>
+                    </circle>
+                  </>
+                )}
+                
+                {/* Level 3+: Explosion effects at target */}
+                {warLevel >= 3 && (
+                  <g>
+                    {/* Multiple explosion rings */}
+                    {[0, 1, 2].map((ringIdx) => (
+                      <circle
+                        key={`explosion-ring-${ringIdx}`}
+                        cx={x2}
+                        cy={y2}
+                        r="0"
+                        fill="none"
+                        stroke={warLevel >= 5 ? "#ff0000" : "#ff6600"}
+                        strokeWidth={warLevel >= 4 ? "3" : "2"}
+                        opacity="0"
+                      >
+                        <animate
+                          attributeName="r"
+                          from="5"
+                          to={warLevel >= 5 ? "40" : "25"}
+                          dur="1.5s"
+                          begin={`${parseFloat(missileDelay) + 2.7 + ringIdx * 0.2}s`}
+                          repeatCount="indefinite"
+                        />
+                        <animate
+                          attributeName="opacity"
+                          from="0.9"
+                          to="0"
+                          dur="1.5s"
+                          begin={`${parseFloat(missileDelay) + 2.7 + ringIdx * 0.2}s`}
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    ))}
+                    
+                    {/* Core explosion flash */}
+                    <circle
+                      cx={x2}
+                      cy={y2}
+                      r={warLevel >= 5 ? "12" : "8"}
+                      fill={warLevel >= 5 ? "#ff0000" : "#ff8800"}
+                      opacity="0"
+                      style={{ filter: `blur(${warLevel}px)` }}
+                    >
+                      <animate
+                        attributeName="opacity"
+                        values="0;1;0"
+                        dur="0.3s"
+                        begin={`${parseFloat(missileDelay) + 2.7}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  </g>
+                )}
+                
+                {/* Level 4+: Debris particles */}
+                {warLevel >= 4 && (
+                  <g>
+                    {Array.from({ length: 8 }).map((_, particleIdx) => {
+                      const angle = (particleIdx / 8) * Math.PI * 2;
+                      const distance = 20 + warLevel * 3;
+                      const px = x2 + Math.cos(angle) * distance;
+                      const py = y2 + Math.sin(angle) * distance;
+                      
+                      return (
+                        <circle
+                          key={`particle-${particleIdx}`}
+                          r="2"
+                          fill="#ff6600"
+                          opacity="0"
+                        >
+                          <animate
+                            attributeName="cx"
+                            from={x2}
+                            to={px}
+                            dur="1s"
+                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            repeatCount="indefinite"
+                          />
+                          <animate
+                            attributeName="cy"
+                            from={y2}
+                            to={py}
+                            dur="1s"
+                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            repeatCount="indefinite"
+                          />
+                          <animate
+                            attributeName="opacity"
+                            values="0;0.8;0"
+                            dur="1s"
+                            begin={`${parseFloat(missileDelay) + 2.7}s`}
+                            repeatCount="indefinite"
+                          />
+                        </circle>
+                      );
+                    })}
+                  </g>
+                )}
+                
+                {/* Level 5: Counter-attack missiles from enemy */}
+                {warLevel === 5 && (
+                  <>
+                    <defs>
+                      <path
+                        id={`counter-${pathId}`}
+                        d={`M ${x2} ${y2} Q ${cx} ${cy} ${x1} ${y1}`}
+                        fill="none"
+                      />
+                    </defs>
+                    
+                    {/* Counter missile trail */}
+                    <path
+                      d={`M ${x2} ${y2} Q ${cx} ${cy} ${x1} ${y1}`}
+                      fill="none"
+                      stroke="#ff0000"
+                      strokeWidth="2"
+                      opacity="0.6"
+                      style={{ filter: "drop-shadow(0 0 10px #ff0000)" }}
+                    />
+                    
+                    {/* Counter missile */}
+                    <circle
+                      r="4"
+                      fill="#ff0000"
+                      style={{ filter: "drop-shadow(0 0 15px #ff0000)" }}
+                    >
+                      <animateMotion
+                        dur="2.5s"
+                        repeatCount="indefinite"
+                        begin={`${parseFloat(missileDelay) + 1.5}s`}
+                      >
+                        <mpath href={`#counter-${pathId}`} />
+                      </animateMotion>
+                    </circle>
+                    
+                    {/* Home country explosion */}
+                    <circle
+                      cx={x1}
+                      cy={y1}
+                      r="10"
+                      fill="#ff0000"
+                      opacity="0"
+                      style={{ filter: "blur(5px)" }}
+                    >
+                      <animate
+                        attributeName="opacity"
+                        values="0;1;0"
+                        dur="0.3s"
+                        begin={`${parseFloat(missileDelay) + 4}s`}
+                        repeatCount="indefinite"
+                      />
+                    </circle>
+                  </>
+                )}
+                
+                {/* Enemy country highlight */}
+                <circle
+                  cx={x2}
+                  cy={y2}
+                  r="6"
+                  fill="none"
+                  stroke="#ff0000"
+                  strokeWidth="2"
+                  opacity={warLevel >= 3 ? 0.8 : 0.5}
+                  className="animate-pulse"
+                />
+              </g>
+            );
+          })}
           
           {/* Circular radar display around selected country */}
           {selectedCountry && countryCentroids[selectedCountry] && (() => {
