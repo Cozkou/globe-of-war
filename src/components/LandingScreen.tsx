@@ -16,11 +16,11 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-war-dark">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-background">
       {/* CRT scanlines effect */}
-      <div className="absolute inset-0 pointer-events-none opacity-10 crt-effect"
+      <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
-          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 0, 0.3) 2px, rgba(255, 0, 0, 0.3) 4px)'
+          backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 0, 0.15) 2px, rgba(255, 0, 0, 0.15) 4px)'
         }}
       />
       
@@ -46,7 +46,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       </div>
 
       {/* Red glow at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/30 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/10 to-transparent pointer-events-none" />
     </div>
   );
 }
