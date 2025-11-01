@@ -228,12 +228,29 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {/* Circular radar display around selected country */}
           {selectedCountry && countryCentroids[selectedCountry] && (() => {
             const [cx, cy] = projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight);
-            const radarRadius = 150;
-            const rings = 8;
+            const radarRadius = 60;
+            const rings = 6;
             const degrees = [0, 45, 90, 135, 180, 225, 270, 315];
             
             return (
               <g>
+                {/* Dark green transparent background */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={radarRadius + 5}
+                  fill="rgba(0, 50, 0, 0.4)"
+                  opacity="0.8"
+                  style={{ filter: "blur(2px)" }}
+                />
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={radarRadius}
+                  fill="rgba(0, 30, 0, 0.6)"
+                  opacity="0.9"
+                />
+                
                 {/* Concentric rings */}
                 {Array.from({ length: rings }).map((_, i) => {
                   const r = ((i + 1) / rings) * radarRadius;
@@ -245,8 +262,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       r={r}
                       fill="none"
                       stroke="#00ff00"
-                      strokeWidth="0.5"
-                      opacity="0.3"
+                      strokeWidth="0.3"
+                      opacity="0.25"
                     />
                   );
                 })}
@@ -264,8 +281,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       x2={x2}
                       y2={y2}
                       stroke="#00ff00"
-                      strokeWidth="0.5"
-                      opacity="0.3"
+                      strokeWidth="0.3"
+                      opacity="0.25"
                     />
                   );
                 })}
@@ -277,41 +294,41 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   r={radarRadius}
                   fill="none"
                   stroke="#00ff00"
-                  strokeWidth="2"
-                  opacity="0.8"
-                  style={{ filter: "drop-shadow(0 0 10px #00ff00)" }}
+                  strokeWidth="1.5"
+                  opacity="0.7"
+                  style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
                 />
                 
                 {/* Degree markers */}
                 {degrees.map((deg) => {
                   const rad = (deg * Math.PI) / 180;
-                  const x = cx + Math.sin(rad) * (radarRadius + 15);
-                  const y = cy - Math.cos(rad) * (radarRadius + 15);
+                  const x = cx + Math.sin(rad) * (radarRadius + 10);
+                  const y = cy - Math.cos(rad) * (radarRadius + 10);
                   return (
                     <text
                       key={`deg-${deg}`}
                       x={x}
                       y={y}
                       fill="#00ff00"
-                      fontSize="12"
+                      fontSize="8"
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      opacity="0.6"
+                      opacity="0.5"
                     >
                       {deg}
                     </text>
                   );
                 })}
                 
-                {/* Rotating sweep with gradient trail */}
+                {/* Enhanced rotating sweep with fade trail */}
                 <defs>
-                  <linearGradient id="sweepGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
-                    <stop offset="50%" stopColor="#00ff00" stopOpacity="0.4" />
-                    <stop offset="100%" stopColor="#00ff00" stopOpacity="0.8" />
-                  </linearGradient>
+                  <radialGradient id="sweepTrailGradient">
+                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="#00ff00" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
+                  </radialGradient>
                   <filter id="sweepGlow">
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
                     <feMerge>
                       <feMergeNode in="coloredBlur"/>
                       <feMergeNode in="SourceGraphic"/>
@@ -319,11 +336,11 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </filter>
                 </defs>
                 
-                {/* Sweep line with trail effect */}
+                {/* Sweep arc with gradient fade */}
                 <path
-                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * 0.5} ${cy - radarRadius * 0.866}`}
-                  fill="url(#sweepGradient)"
-                  opacity="0.5"
+                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * Math.sin(Math.PI / 3)} ${cy - radarRadius * Math.cos(Math.PI / 3)} Z`}
+                  fill="url(#sweepTrailGradient)"
+                  opacity="0.6"
                   filter="url(#sweepGlow)"
                 >
                   <animateTransform
@@ -336,16 +353,16 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   />
                 </path>
                 
-                {/* Sweep line */}
+                {/* Primary sweep line */}
                 <line
                   x1={cx}
                   y1={cy}
                   x2={cx}
                   y2={cy - radarRadius}
                   stroke="#00ff00"
-                  strokeWidth="2"
-                  opacity="0.9"
-                  style={{ filter: "drop-shadow(0 0 5px #00ff00)" }}
+                  strokeWidth="1.5"
+                  opacity="1"
+                  style={{ filter: "drop-shadow(0 0 4px #00ff00)" }}
                 >
                   <animateTransform
                     attributeName="transform"
@@ -361,10 +378,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                 <circle
                   cx={cx}
                   cy={cy}
-                  r="4"
+                  r="3"
                   fill="#00ff00"
                   opacity="1"
-                  style={{ filter: "drop-shadow(0 0 5px #00ff00)" }}
+                  style={{ filter: "drop-shadow(0 0 4px #00ff00)" }}
                 />
               </g>
             );
