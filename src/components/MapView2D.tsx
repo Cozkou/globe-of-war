@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Slider } from './ui/slider';
 import { HelpCircle } from 'lucide-react';
 import { feature } from 'topojson-client';
 
@@ -21,9 +22,20 @@ interface GeoJSONFeature {
   };
 }
 
+interface WarBeam {
+  id: string;
+  fromCountry: string;
+  toCountry: string;
+  fromCoords: [number, number];
+  toCoords: [number, number];
+  startTime: number;
+}
+
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [warIntensity, setWarIntensity] = useState([0]);
+  const [warBeams, setWarBeams] = useState<WarBeam[]>([]);
 
   useEffect(() => {
     fetch('/countries.json')
@@ -39,6 +51,75 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         setIsLoading(false);
       });
   }, []);
+
+  // Calculate country centroids for beam targeting
+  const countryCentroids = useMemo(() => {
+    const centroids: { [key: string]: [number, number] } = {};
+    countries.forEach((country) => {
+      const { geometry, properties } = country;
+      let allCoords: number[][] = [];
+      
+      if (geometry.type === 'Polygon') {
+        allCoords = geometry.coordinates[0] as number[][];
+      } else if (geometry.type === 'MultiPolygon') {
+        allCoords = (geometry.coordinates[0][0] as number[][]);
+      }
+      
+      if (allCoords.length > 0) {
+        const avgLng = allCoords.reduce((sum, coord) => sum + coord[0], 0) / allCoords.length;
+        const avgLat = allCoords.reduce((sum, coord) => sum + coord[1], 0) / allCoords.length;
+        centroids[properties.name] = [avgLng, avgLat];
+      }
+    });
+    return centroids;
+  }, [countries]);
+
+  // War beam generation effect
+  useEffect(() => {
+    if (warIntensity[0] === 0) {
+      setWarBeams([]);
+      return;
+    }
+
+    const countryNames = Object.keys(countryCentroids);
+    if (countryNames.length < 2) return;
+
+    const interval = setInterval(() => {
+      const numBeams = Math.floor(warIntensity[0] / 10) + 1;
+      const newBeams: WarBeam[] = [];
+
+      for (let i = 0; i < numBeams; i++) {
+        const isFromSelected = Math.random() < 0.5;
+        const fromCountry = isFromSelected 
+          ? selectedCountry 
+          : countryNames[Math.floor(Math.random() * countryNames.length)];
+        
+        let toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
+        while (toCountry === fromCountry) {
+          toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
+        }
+
+        if (countryCentroids[fromCountry] && countryCentroids[toCountry]) {
+          newBeams.push({
+            id: `beam-${Date.now()}-${i}`,
+            fromCountry,
+            toCountry,
+            fromCoords: countryCentroids[fromCountry],
+            toCoords: countryCentroids[toCountry],
+            startTime: Date.now(),
+          });
+        }
+      }
+
+      setWarBeams((prev) => {
+        const now = Date.now();
+        const filtered = prev.filter((beam) => now - beam.startTime < 2000);
+        return [...filtered, ...newBeams];
+      });
+    }, Math.max(200, 1000 - warIntensity[0] * 8));
+
+    return () => clearInterval(interval);
+  }, [warIntensity, countryCentroids, selectedCountry]);
 
   // Convert lat/lng to SVG coordinates using Equirectangular projection
   const projectToSVG = (lng: number, lat: number, width: number, height: number) => {
@@ -169,6 +250,70 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
+          
+          {/* War beams */}
+          {warBeams.map((beam) => {
+            const [x1, y1] = projectToSVG(beam.fromCoords[0], beam.fromCoords[1], viewBoxWidth, viewBoxHeight);
+            const [x2, y2] = projectToSVG(beam.toCoords[0], beam.toCoords[1], viewBoxWidth, viewBoxHeight);
+            
+            return (
+              <g key={beam.id}>
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#ff0000"
+                  strokeWidth="2"
+                  opacity="0.8"
+                  className="animate-pulse"
+                  style={{
+                    filter: "drop-shadow(0 0 4px #ff0000)",
+                  }}
+                >
+                  <animate
+                    attributeName="opacity"
+                    from="0"
+                    to="0.8"
+                    dur="0.3s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    from="0.8"
+                    to="0"
+                    begin="1.7s"
+                    dur="0.3s"
+                    fill="freeze"
+                  />
+                </line>
+                {/* Explosion effect at target */}
+                <circle
+                  cx={x2}
+                  cy={y2}
+                  r="3"
+                  fill="#ff3333"
+                  opacity="0"
+                >
+                  <animate
+                    attributeName="r"
+                    from="3"
+                    to="15"
+                    begin="0.3s"
+                    dur="0.5s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;0"
+                    begin="0.3s"
+                    dur="0.5s"
+                    fill="freeze"
+                  />
+                </circle>
+              </g>
+            );
+          })}
         </svg>
       </div>
 
@@ -214,6 +359,25 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-war-blood/10 to-transparent" />
         <div className="absolute top-0 bottom-0 left-0 w-24 bg-gradient-to-r from-war-blood/10 to-transparent" />
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
+      </div>
+
+      {/* War intensity slider */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-96 bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
+        <div className="flex items-center gap-4">
+          <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
+            WAR INTENSITY
+          </p>
+          <Slider
+            value={warIntensity}
+            onValueChange={setWarIntensity}
+            max={100}
+            step={1}
+            className="flex-1"
+          />
+          <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
+            {warIntensity[0]}%
+          </p>
+        </div>
       </div>
     </div>
   );
