@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Sphere, Line, Stars } from '@react-three/drei';
+import { OrbitControls, Sphere, Line, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { feature } from 'topojson-client';
 import { Button } from '@/components/ui/button';
@@ -157,15 +157,30 @@ function CapitalMarker({ capital, radius }: { capital: Capital; radius: number }
     return latLngToVector3(capital.lat, capital.lng, radius + 0.01);
   }, [capital, radius]);
 
+  const labelPosition = useMemo(() => {
+    return latLngToVector3(capital.lat, capital.lng, radius + 0.08);
+  }, [capital, radius]);
+
   return (
     <group position={position}>
       <Sphere args={[0.015, 16, 16]}>
-        <meshBasicMaterial color="#ffff66" />
+        <meshBasicMaterial color="#00ffff" />
       </Sphere>
-      {/* Much brighter glow */}
+      {/* Glow effect */}
       <Sphere args={[0.025, 16, 16]}>
-        <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
+        <meshBasicMaterial color="#00ccff" transparent opacity={0.7} />
       </Sphere>
+      <Text
+        position={[labelPosition.x - position.x, labelPosition.y - position.y, labelPosition.z - position.z]}
+        fontSize={0.04}
+        color="#00ffff"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.002}
+        outlineColor="#000000"
+      >
+        {capital.name}
+      </Text>
     </group>
   );
 }
