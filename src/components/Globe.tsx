@@ -200,20 +200,20 @@ function EarthGlobe({
       {/* Globe sphere with very dark ocean */}
       <Sphere ref={globeRef} args={[radius, 64, 64]}>
         <meshStandardMaterial
-          color="#000508"
-          roughness={0.9}
-          metalness={0.1}
-          emissive="#000000"
-          emissiveIntensity={0.1}
+          color="#001020"
+          roughness={0.8}
+          metalness={0.2}
+          emissive="#00050f"
+          emissiveIntensity={0.3}
         />
       </Sphere>
       
       {/* Subtle blue glow effect */}
       <Sphere args={[radius + 0.02, 64, 64]}>
         <meshBasicMaterial
-          color="#001a33"
+          color="#002040"
           transparent
-          opacity={0.25}
+          opacity={0.3}
           side={THREE.BackSide}
         />
       </Sphere>
@@ -259,7 +259,7 @@ function EarthGlobe({
           color="#ff0000"
           wireframe
           transparent
-          opacity={0.08}
+          opacity={0.12}
         />
       </Sphere>
 
@@ -325,10 +325,10 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
           speed={0.5}
         />
         
-        <ambientLight intensity={0.4} />
-        <pointLight position={[10, 10, 10]} intensity={1.5} color="#ff0000" />
-        <pointLight position={[-10, -10, -10]} intensity={0.7} color="#880000" />
-        <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ff4444" />
+        <ambientLight intensity={0.6} />
+        <pointLight position={[10, 10, 10]} intensity={2} color="#ff0000" />
+        <pointLight position={[-10, -10, -10]} intensity={1} color="#880000" />
+        <directionalLight position={[5, 5, 5]} intensity={1.2} color="#ff4444" />
         
         <EarthGlobe 
           countries={countries}
