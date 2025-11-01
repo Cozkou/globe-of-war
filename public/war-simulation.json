@@ -1,0 +1,223 @@
+{
+  "metadata": {
+    "name": "World War II Simulation",
+    "description": "Historical representation of WWII major events",
+    "startYear": 1939,
+    "endYear": 1945,
+    "totalDuration": 72
+  },
+  "events": [
+    {
+      "id": "invasion_poland",
+      "timestamp": 0,
+      "type": "invasion",
+      "attacker": "Germany",
+      "defender": "Poland",
+      "intensity": 80,
+      "duration": 4,
+      "attackVectors": [
+        { "from": "Germany", "to": "Poland", "strength": 100 }
+      ]
+    },
+    {
+      "id": "invasion_denmark_norway",
+      "timestamp": 7,
+      "type": "invasion",
+      "attacker": "Germany",
+      "defender": "Denmark",
+      "intensity": 60,
+      "duration": 2,
+      "attackVectors": [
+        { "from": "Germany", "to": "Denmark", "strength": 80 },
+        { "from": "Germany", "to": "Norway", "strength": 70 }
+      ]
+    },
+    {
+      "id": "invasion_france",
+      "timestamp": 9,
+      "type": "invasion",
+      "attacker": "Germany",
+      "defender": "France",
+      "intensity": 95,
+      "duration": 6,
+      "attackVectors": [
+        { "from": "Germany", "to": "Belgium", "strength": 90 },
+        { "from": "Germany", "to": "Netherlands", "strength": 85 },
+        { "from": "Germany", "to": "France", "strength": 100 }
+      ]
+    },
+    {
+      "id": "battle_britain",
+      "timestamp": 13,
+      "type": "aerial_assault",
+      "attacker": "Germany",
+      "defender": "United Kingdom",
+      "intensity": 70,
+      "duration": 8,
+      "attackVectors": [
+        { "from": "Germany", "to": "United Kingdom", "strength": 75 },
+        { "from": "France", "to": "United Kingdom", "strength": 65 }
+      ]
+    },
+    {
+      "id": "operation_barbarossa",
+      "timestamp": 24,
+      "type": "invasion",
+      "attacker": "Germany",
+      "defender": "Russia",
+      "intensity": 100,
+      "duration": 10,
+      "attackVectors": [
+        { "from": "Germany", "to": "Russia", "strength": 100 },
+        { "from": "Poland", "to": "Russia", "strength": 90 },
+        { "from": "Romania", "to": "Russia", "strength": 70 }
+      ]
+    },
+    {
+      "id": "pearl_harbor",
+      "timestamp": 26,
+      "type": "naval_assault",
+      "attacker": "Japan",
+      "defender": "United States of America",
+      "intensity": 85,
+      "duration": 1,
+      "attackVectors": [
+        { "from": "Japan", "to": "United States of America", "strength": 95 }
+      ]
+    },
+    {
+      "id": "pacific_expansion",
+      "timestamp": 27,
+      "type": "invasion",
+      "attacker": "Japan",
+      "defender": "Philippines",
+      "intensity": 75,
+      "duration": 8,
+      "attackVectors": [
+        { "from": "Japan", "to": "Philippines", "strength": 80 },
+        { "from": "Japan", "to": "Indonesia", "strength": 75 },
+        { "from": "Japan", "to": "Malaysia", "strength": 70 },
+        { "from": "Japan", "to": "Thailand", "strength": 65 }
+      ]
+    },
+    {
+      "id": "north_africa_campaign",
+      "timestamp": 15,
+      "type": "invasion",
+      "attacker": "Germany",
+      "defender": "Libya",
+      "intensity": 60,
+      "duration": 12,
+      "attackVectors": [
+        { "from": "Germany", "to": "Libya", "strength": 70 },
+        { "from": "Italy", "to": "Libya", "strength": 65 },
+        { "from": "Italy", "to": "Egypt", "strength": 60 }
+      ]
+    },
+    {
+      "id": "stalingrad",
+      "timestamp": 36,
+      "type": "battle",
+      "attacker": "Germany",
+      "defender": "Russia",
+      "intensity": 100,
+      "duration": 6,
+      "attackVectors": [
+        { "from": "Germany", "to": "Russia", "strength": 100 }
+      ]
+    },
+    {
+      "id": "allied_bombing_campaign",
+      "timestamp": 40,
+      "type": "aerial_assault",
+      "attacker": "United Kingdom",
+      "defender": "Germany",
+      "intensity": 80,
+      "duration": 20,
+      "attackVectors": [
+        { "from": "United Kingdom", "to": "Germany", "strength": 85 },
+        { "from": "United States of America", "to": "Germany", "strength": 80 }
+      ]
+    },
+    {
+      "id": "d_day",
+      "timestamp": 54,
+      "type": "invasion",
+      "attacker": "United Kingdom",
+      "defender": "France",
+      "intensity": 100,
+      "duration": 4,
+      "attackVectors": [
+        { "from": "United Kingdom", "to": "France", "strength": 100 },
+        { "from": "United States of America", "to": "France", "strength": 100 }
+      ]
+    },
+    {
+      "id": "liberation_western_europe",
+      "timestamp": 58,
+      "type": "invasion",
+      "attacker": "United States of America",
+      "defender": "Germany",
+      "intensity": 90,
+      "duration": 8,
+      "attackVectors": [
+        { "from": "France", "to": "Germany", "strength": 95 },
+        { "from": "Belgium", "to": "Germany", "strength": 90 },
+        { "from": "Netherlands", "to": "Germany", "strength": 85 }
+      ]
+    },
+    {
+      "id": "soviet_advance",
+      "timestamp": 48,
+      "type": "invasion",
+      "attacker": "Russia",
+      "defender": "Germany",
+      "intensity": 100,
+      "duration": 18,
+      "attackVectors": [
+        { "from": "Russia", "to": "Poland", "strength": 100 },
+        { "from": "Russia", "to": "Romania", "strength": 90 },
+        { "from": "Russia", "to": "Hungary", "strength": 85 },
+        { "from": "Poland", "to": "Germany", "strength": 95 }
+      ]
+    },
+    {
+      "id": "pacific_island_hopping",
+      "timestamp": 38,
+      "type": "naval_assault",
+      "attacker": "United States of America",
+      "defender": "Japan",
+      "intensity": 85,
+      "duration": 28,
+      "attackVectors": [
+        { "from": "United States of America", "to": "Japan", "strength": 70 },
+        { "from": "United States of America", "to": "Philippines", "strength": 80 }
+      ]
+    },
+    {
+      "id": "fall_of_berlin",
+      "timestamp": 66,
+      "type": "battle",
+      "attacker": "Russia",
+      "defender": "Germany",
+      "intensity": 100,
+      "duration": 2,
+      "attackVectors": [
+        { "from": "Russia", "to": "Germany", "strength": 100 },
+        { "from": "Poland", "to": "Germany", "strength": 95 }
+      ]
+    },
+    {
+      "id": "atomic_bombings",
+      "timestamp": 70,
+      "type": "nuclear_strike",
+      "attacker": "United States of America",
+      "defender": "Japan",
+      "intensity": 100,
+      "duration": 1,
+      "attackVectors": [
+        { "from": "United States of America", "to": "Japan", "strength": 100 }
+      ]
+    }
+  ]
+}

@@ -106,6 +106,17 @@ export default {
             transform: "scale(0.95)"
           }
         },
+        "shake": {
+          "0%, 100%": {
+            transform: "translate(0, 0)"
+          },
+          "10%, 30%, 50%, 70%, 90%": {
+            transform: "translate(-2px, 2px)"
+          },
+          "20%, 40%, 60%, 80%": {
+            transform: "translate(2px, -2px)"
+          }
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -113,6 +124,7 @@ export default {
         "fade-in": "fade-in 0.5s ease-out",
         "scale-in": "scale-in 0.3s ease-out",
         "fade-out": "fade-out 0.8s ease-out forwards",
+        "shake": "shake 0.5s ease-in-out infinite",
       },
     },
   },

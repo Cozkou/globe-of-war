@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Slider } from './ui/slider';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Play, Pause, SkipBack } from 'lucide-react';
 import { feature } from 'topojson-client';
 
 interface MapView2DProps {
@@ -22,32 +22,77 @@ interface GeoJSONFeature {
   };
 }
 
-interface WarBeam {
+interface AttackVector {
+  from: string;
+  to: string;
+  strength: number;
+}
+
+interface WarEvent {
+  id: string;
+  timestamp: number;
+  type: 'invasion' | 'battle' | 'aerial_assault' | 'naval_assault' | 'nuclear_strike';
+  attacker: string;
+  defender: string;
+  intensity: number;
+  duration: number;
+  attackVectors: AttackVector[];
+}
+
+interface WarSimulation {
+  metadata: {
+    name: string;
+    description: string;
+    startYear: number;
+    endYear: number;
+    totalDuration: number;
+  };
+  events: WarEvent[];
+}
+
+interface ActiveAttack {
   id: string;
   fromCountry: string;
   toCountry: string;
   fromCoords: [number, number];
   toCoords: [number, number];
   startTime: number;
+  type: string;
+  strength: number;
+  phase: 'launch' | 'travel' | 'impact';
+}
+
+interface OccupiedTerritory {
+  country: string;
+  occupier: string;
+  intensity: number;
+  startTime: number;
 }
 
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [warIntensity, setWarIntensity] = useState([0]);
-  const [warBeams, setWarBeams] = useState<WarBeam[]>([]);
+  const [warSimulation, setWarSimulation] = useState<WarSimulation | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState([1]);
+  const [activeAttacks, setActiveAttacks] = useState<ActiveAttack[]>([]);
+  const [occupiedTerritories, setOccupiedTerritories] = useState<OccupiedTerritory[]>([]);
 
   useEffect(() => {
-    fetch('/countries.json')
-      .then(response => response.json())
-      .then((topology: any) => {
+    Promise.all([
+      fetch('/countries.json').then(res => res.json()),
+      fetch('/war-simulation.json').then(res => res.json())
+    ])
+      .then(([topology, simulation]) => {
         const countriesObject = topology.objects.countries;
         const geojson: any = feature(topology, countriesObject);
         setCountries(geojson.features as GeoJSONFeature[]);
+        setWarSimulation(simulation);
         setIsLoading(false);
       })
       .catch(error => {
-        console.error('Error loading country data:', error);
+        console.error('Error loading data:', error);
         setIsLoading(false);
       });
   }, []);
@@ -74,52 +119,92 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return centroids;
   }, [countries]);
 
-  // War beam generation effect
+  // Timeline playback
   useEffect(() => {
-    if (warIntensity[0] === 0) {
-      setWarBeams([]);
-      return;
-    }
-
-    const countryNames = Object.keys(countryCentroids);
-    if (countryNames.length < 2) return;
+    if (!isPlaying || !warSimulation) return;
 
     const interval = setInterval(() => {
-      const numBeams = Math.floor(warIntensity[0] / 10) + 1;
-      const newBeams: WarBeam[] = [];
-
-      for (let i = 0; i < numBeams; i++) {
-        const isFromSelected = Math.random() < 0.5;
-        const fromCountry = isFromSelected 
-          ? selectedCountry 
-          : countryNames[Math.floor(Math.random() * countryNames.length)];
-        
-        let toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
-        while (toCountry === fromCountry) {
-          toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
-        }
-
-        if (countryCentroids[fromCountry] && countryCentroids[toCountry]) {
-          newBeams.push({
-            id: `beam-${Date.now()}-${i}`,
-            fromCountry,
-            toCountry,
-            fromCoords: countryCentroids[fromCountry],
-            toCoords: countryCentroids[toCountry],
-            startTime: Date.now(),
-          });
-        }
-      }
-
-      setWarBeams((prev) => {
-        const now = Date.now();
-        const filtered = prev.filter((beam) => now - beam.startTime < 2000);
-        return [...filtered, ...newBeams];
+      setCurrentTime((prev) => {
+        const next = prev + (0.1 * playbackSpeed[0]);
+        return next >= warSimulation.metadata.totalDuration ? 0 : next;
       });
-    }, Math.max(200, 1000 - warIntensity[0] * 8));
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [warIntensity, countryCentroids, selectedCountry]);
+  }, [isPlaying, playbackSpeed, warSimulation]);
+
+  // Process war events based on current timeline
+  useEffect(() => {
+    if (!warSimulation || !countryCentroids) return;
+
+    const activeEvents = warSimulation.events.filter(
+      (event) => currentTime >= event.timestamp && currentTime < event.timestamp + event.duration
+    );
+
+    // Generate attacks from active events
+    const newAttacks: ActiveAttack[] = [];
+    const newOccupations: OccupiedTerritory[] = [];
+
+    activeEvents.forEach((event) => {
+      event.attackVectors.forEach((vector) => {
+        if (countryCentroids[vector.from] && countryCentroids[vector.to]) {
+          const attackId = `${event.id}-${vector.from}-${vector.to}`;
+          
+          // Check if this attack already exists
+          const existingAttack = activeAttacks.find(a => a.id === attackId);
+          if (!existingAttack) {
+            newAttacks.push({
+              id: attackId,
+              fromCountry: vector.from,
+              toCountry: vector.to,
+              fromCoords: countryCentroids[vector.from],
+              toCoords: countryCentroids[vector.to],
+              startTime: Date.now(),
+              type: event.type,
+              strength: vector.strength,
+              phase: 'launch',
+            });
+          }
+        }
+      });
+
+      // Mark territories as occupied during invasions
+      if (event.type === 'invasion') {
+        newOccupations.push({
+          country: event.defender,
+          occupier: event.attacker,
+          intensity: event.intensity,
+          startTime: currentTime,
+        });
+      }
+    });
+
+    setActiveAttacks((prev) => {
+      const now = Date.now();
+      const filtered = prev.filter((attack) => now - attack.startTime < 3000);
+      return [...filtered, ...newAttacks];
+    });
+
+    setOccupiedTerritories((prev) => {
+      const updated = [...prev];
+      newOccupations.forEach((occ) => {
+        const existing = updated.findIndex((o) => o.country === occ.country);
+        if (existing >= 0) {
+          updated[existing] = occ;
+        } else {
+          updated.push(occ);
+        }
+      });
+      return updated;
+    });
+  }, [currentTime, warSimulation, countryCentroids]);
+
+  const resetSimulation = () => {
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setActiveAttacks([]);
+    setOccupiedTerritories([]);
+  };
 
   // Convert lat/lng to SVG coordinates using Equirectangular projection
   const projectToSVG = (lng: number, lat: number, width: number, height: number) => {
@@ -178,6 +263,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const renderCountry = (country: GeoJSONFeature, width: number, height: number) => {
     const countryName = country.properties.name;
     const isSelected = countryName === selectedCountry;
+    const occupation = occupiedTerritories.find((occ) => occ.country === countryName);
     const { geometry } = country;
     
     const allPaths: string[] = [];
@@ -194,19 +280,25 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       });
     }
     
+    const fillOpacity = occupation ? Math.min(occupation.intensity / 100 * 0.4, 0.4) : 0;
+    const fillColor = occupation ? "#ff0000" : "none";
+
     return allPaths
       .filter(path => path !== '')
       .map((path, index) => (
         <path
           key={`${countryName}-${index}`}
           d={path}
-          fill="none"
+          fill={fillColor}
+          fillOpacity={fillOpacity}
           stroke="#ff3333"
           strokeWidth={isSelected ? 2.5 : 1.2}
           strokeOpacity={isSelected ? 1 : 0.6}
-          className={isSelected ? "animate-pulse" : ""}
+          className={isSelected || occupation ? "animate-pulse" : ""}
           style={isSelected ? {
             filter: "drop-shadow(0 0 8px #ff3333)"
+          } : occupation ? {
+            filter: "drop-shadow(0 0 4px #ff0000)"
           } : {}}
         />
       ));
@@ -215,8 +307,173 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const viewBoxWidth = 1000;
   const viewBoxHeight = 500;
 
+  const getAttackVisual = (attack: ActiveAttack) => {
+    const [x1, y1] = projectToSVG(attack.fromCoords[0], attack.fromCoords[1], viewBoxWidth, viewBoxHeight);
+    const [x2, y2] = projectToSVG(attack.toCoords[0], attack.toCoords[1], viewBoxWidth, viewBoxHeight);
+    
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Create curved path for missiles
+    const curvature = distance * 0.2;
+    const midX = (x1 + x2) / 2 - (dy / distance) * curvature;
+    const midY = (y1 + y2) / 2 + (dx / distance) * curvature;
+    const pathData = `M ${x1},${y1} Q ${midX},${midY} ${x2},${y2}`;
+    
+    switch (attack.type) {
+      case 'nuclear_strike':
+        return (
+          <g key={attack.id}>
+            <path
+              d={pathData}
+              fill="none"
+              stroke="url(#nuclearGradient)"
+              strokeWidth="3"
+              opacity="0.9"
+              style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
+            >
+              <animate attributeName="stroke-dasharray" from="0,1000" to="1000,0" dur="1.5s" fill="freeze" />
+              <animate attributeName="opacity" from="1" to="0" begin="1.5s" dur="0.5s" fill="freeze" />
+            </path>
+            <circle cx={x2} cy={y2} r="0" fill="#ffff00" opacity="0">
+              <animate attributeName="r" from="0" to="30" begin="1.5s" dur="0.3s" fill="freeze" />
+              <animate attributeName="opacity" values="0;1;1;0" begin="1.5s" dur="1s" fill="freeze" />
+            </circle>
+            <circle cx={x2} cy={y2} r="30" fill="none" stroke="#ff0000" strokeWidth="3" opacity="0">
+              <animate attributeName="r" from="30" to="60" begin="1.8s" dur="0.5s" fill="freeze" />
+              <animate attributeName="opacity" values="0;1;0" begin="1.8s" dur="0.5s" fill="freeze" />
+            </circle>
+          </g>
+        );
+      
+      case 'invasion':
+        return (
+          <g key={attack.id}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <g key={`${attack.id}-wave-${i}`}>
+                <path
+                  d={pathData}
+                  fill="none"
+                  stroke="#ff3333"
+                  strokeWidth="2"
+                  strokeDasharray="10,5"
+                  opacity="0.7"
+                  style={{ filter: "drop-shadow(0 0 4px #ff0000)" }}
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="1000"
+                    to="0"
+                    begin={`${i * 0.3}s`}
+                    dur="2s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    from="0.7"
+                    to="0"
+                    begin={`${i * 0.3 + 1.7}s`}
+                    dur="0.3s"
+                    fill="freeze"
+                  />
+                </path>
+                <circle cx={x2} cy={y2} r="5" fill="#ff0000" opacity="0">
+                  <animate
+                    attributeName="opacity"
+                    values="0;1;0"
+                    begin={`${i * 0.3 + 2}s`}
+                    dur="0.3s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="r"
+                    from="5"
+                    to="15"
+                    begin={`${i * 0.3 + 2}s`}
+                    dur="0.3s"
+                    fill="freeze"
+                  />
+                </circle>
+              </g>
+            ))}
+          </g>
+        );
+      
+      case 'aerial_assault':
+        return (
+          <g key={attack.id}>
+            <path
+              d={pathData}
+              fill="none"
+              stroke="url(#aerialGradient)"
+              strokeWidth="1.5"
+              opacity="0.8"
+            />
+            {[0, 1, 2].map((i) => (
+              <circle key={`bomb-${i}`} cx={x1} cy={y1} r="2" fill="#ff6600" opacity="0.9">
+                <animateMotion path={pathData} begin={`${i * 0.4}s`} dur="1.5s" fill="freeze" />
+                <animate attributeName="opacity" from="0.9" to="0" begin={`${i * 0.4 + 1.5}s`} dur="0.2s" fill="freeze" />
+              </circle>
+            ))}
+            <circle cx={x2} cy={y2} r="0" fill="#ff3333" opacity="0">
+              <animate attributeName="r" values="0;12;0" dur="0.4s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0;0.8;0" dur="0.4s" repeatCount="indefinite" />
+            </circle>
+          </g>
+        );
+      
+      case 'naval_assault':
+        return (
+          <g key={attack.id}>
+            <path
+              d={pathData}
+              fill="none"
+              stroke="url(#navalGradient)"
+              strokeWidth="2.5"
+              strokeDasharray="15,10"
+              opacity="0.8"
+              style={{ filter: "drop-shadow(0 0 6px #0088ff)" }}
+            >
+              <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="2s" fill="freeze" />
+              <animate attributeName="opacity" from="0.8" to="0" begin="2s" dur="0.3s" fill="freeze" />
+            </path>
+            <circle cx={x1} cy={y1} r="4" fill="#ffffff" opacity="0.9">
+              <animateMotion path={pathData} dur="2s" fill="freeze" />
+            </circle>
+            <circle cx={x2} cy={y2} r="0" fill="#0088ff" opacity="0">
+              <animate attributeName="r" from="0" to="20" begin="2s" dur="0.4s" fill="freeze" />
+              <animate attributeName="opacity" values="0;0.9;0" begin="2s" dur="0.4s" fill="freeze" />
+            </circle>
+          </g>
+        );
+      
+      default: // battle
+        return (
+          <g key={attack.id}>
+            <line
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke="#ff0000"
+              strokeWidth="2"
+              opacity="0.6"
+              strokeDasharray="5,5"
+              style={{ filter: "drop-shadow(0 0 4px #ff0000)" }}
+            >
+              <animate attributeName="stroke-dashoffset" from="0" to="20" dur="0.5s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.6;0.9;0.6" dur="1s" repeatCount="indefinite" />
+            </line>
+          </g>
+        );
+    }
+  };
+
+  const shouldShake = activeAttacks.length > 5 || activeAttacks.some(a => a.type === 'nuclear_strike');
+
   return (
-    <div className="relative w-full h-screen bg-background overflow-hidden">
+    <div className={`relative w-full h-screen bg-background overflow-hidden ${shouldShake ? 'animate-shake' : ''}`}>
       {/* Subtle scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -240,80 +497,32 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {/* Subtle blue background with transparency */}
           <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="rgba(10, 32, 64, 0.2)" />
           
-          {/* Subtle grid overlay - matching 3D globe style */}
+          {/* Subtle grid overlay and gradients */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
               <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ff3333" strokeWidth="0.5" opacity="0.15"/>
             </pattern>
+            <linearGradient id="nuclearGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#00ff00" stopOpacity="0.2" />
+              <stop offset="50%" stopColor="#ffff00" stopOpacity="0.9" />
+              <stop offset="100%" stopColor="#ff0000" stopOpacity="0.9" />
+            </linearGradient>
+            <linearGradient id="aerialGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ff6600" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#ff0000" stopOpacity="0.9" />
+            </linearGradient>
+            <linearGradient id="navalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0088ff" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#0044aa" stopOpacity="0.9" />
+            </linearGradient>
           </defs>
           <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="url(#grid)" />
           
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
           
-          {/* War beams */}
-          {warBeams.map((beam) => {
-            const [x1, y1] = projectToSVG(beam.fromCoords[0], beam.fromCoords[1], viewBoxWidth, viewBoxHeight);
-            const [x2, y2] = projectToSVG(beam.toCoords[0], beam.toCoords[1], viewBoxWidth, viewBoxHeight);
-            
-            return (
-              <g key={beam.id}>
-                <line
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke="#ff0000"
-                  strokeWidth="2"
-                  opacity="0.8"
-                  className="animate-pulse"
-                  style={{
-                    filter: "drop-shadow(0 0 4px #ff0000)",
-                  }}
-                >
-                  <animate
-                    attributeName="opacity"
-                    from="0"
-                    to="0.8"
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    from="0.8"
-                    to="0"
-                    begin="1.7s"
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                </line>
-                {/* Explosion effect at target */}
-                <circle
-                  cx={x2}
-                  cy={y2}
-                  r="3"
-                  fill="#ff3333"
-                  opacity="0"
-                >
-                  <animate
-                    attributeName="r"
-                    from="3"
-                    to="15"
-                    begin="0.3s"
-                    dur="0.5s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;0"
-                    begin="0.3s"
-                    dur="0.5s"
-                    fill="freeze"
-                  />
-                </circle>
-              </g>
-            );
-          })}
+          {/* Active attacks */}
+          {activeAttacks.map((attack) => getAttackVisual(attack))}
         </svg>
       </div>
 
@@ -361,22 +570,52 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* War intensity slider */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-96 bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
-        <div className="flex items-center gap-4">
-          <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
-            WAR INTENSITY
-          </p>
-          <Slider
-            value={warIntensity}
-            onValueChange={setWarIntensity}
-            max={100}
-            step={1}
-            className="flex-1"
-          />
-          <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
-            {warIntensity[0]}%
-          </p>
+      {/* Timeline controls */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[600px] bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={resetSimulation}
+              className="border border-primary hover:bg-primary/20"
+            >
+              <SkipBack className="h-4 w-4 text-primary" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="border border-primary hover:bg-primary/20"
+            >
+              {isPlaying ? (
+                <Pause className="h-4 w-4 text-primary" />
+              ) : (
+                <Play className="h-4 w-4 text-primary" />
+              )}
+            </Button>
+            <div className="flex-1 text-center">
+              <p className="text-xs text-primary tracking-wider text-glow">
+                {warSimulation ? `${warSimulation.metadata.startYear + Math.floor(currentTime / 12)} - MONTH ${Math.floor(currentTime % 12) + 1}` : 'LOADING...'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
+              SPEED
+            </p>
+            <Slider
+              value={playbackSpeed}
+              onValueChange={setPlaybackSpeed}
+              min={0.5}
+              max={5}
+              step={0.5}
+              className="flex-1"
+            />
+            <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
+              {playbackSpeed[0]}x
+            </p>
+          </div>
         </div>
       </div>
     </div>
