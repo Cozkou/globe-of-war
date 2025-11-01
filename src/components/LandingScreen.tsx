@@ -47,7 +47,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* Footer */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider">
-        WLDN x Builder's Brew
+        WLDN x Builder's Brew | HackTheBurgh 2025 ©
       </div>
 
       {/* Red glow at bottom */}

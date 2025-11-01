@@ -287,6 +287,7 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   const handleCountryClick = (name: string) => {
     setSelectedCountry(name);
@@ -312,6 +313,15 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
         console.error('Error loading country data:', error);
         setIsLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
   return (
@@ -363,14 +373,21 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
       </Canvas>
       
       {hoveredCountry && (
-        <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-card/90 border-2 border-primary px-6 py-3 text-glow animate-fade-in z-20">
+        <div 
+          className="fixed pointer-events-none bg-card/90 border-2 border-primary px-4 py-2 text-glow animate-fade-in z-20"
+          style={{
+            left: `${mousePosition.x + 20}px`,
+            top: `${mousePosition.y + 20}px`,
+            transform: 'translate(0, 0)'
+          }}
+        >
           <p className="text-xs text-primary tracking-wider">{hoveredCountry}</p>
         </div>
       )}
       
       {selectedCountry && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20 animate-scale-in">
-          <div className="bg-card/95 border-2 border-primary px-6 py-2">
+          <div className="bg-card/95 border-2 border-primary px-6 py-2 animate-pulse">
             <p className="text-xs text-primary text-glow tracking-wider">
               SELECTED: {selectedCountry}
             </p>
