@@ -47,26 +47,51 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return [x, y];
   };
 
-  const convertCoordinatesToPath = (coordinates: number[][], width: number, height: number): string => {
-    if (coordinates.length === 0) return '';
+  const convertCoordinatesToPath = (coordinates: number[][], width: number, height: number): string[] => {
+    if (coordinates.length === 0) return [];
     
-    // Check for artifacts: consecutive points that jump more than 170 degrees
-    // This filters out rendering glitches while keeping legitimate countries like Russia
-    for (let i = 1; i < coordinates.length; i++) {
-      const [lng1] = coordinates[i - 1];
-      const [lng2] = coordinates[i];
-      if (Math.abs(lng2 - lng1) > 170) {
-        return ''; // This is likely an artifact
+    // Split polygons at antimeridian crossings
+    const paths: string[] = [];
+    let currentSegment: number[][] = [];
+    
+    for (let i = 0; i < coordinates.length; i++) {
+      const coord = coordinates[i];
+      
+      if (i > 0) {
+        const [lng1] = coordinates[i - 1];
+        const [lng2] = coord;
+        
+        // If there's a jump greater than 170 degrees, split the polygon
+        if (Math.abs(lng2 - lng1) > 170) {
+          // Finish current segment
+          if (currentSegment.length > 1) {
+            const pathParts = currentSegment.map((c, index) => {
+              const [lng, lat] = c;
+              const [x, y] = projectToSVG(lng, lat, width, height);
+              return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+            });
+            paths.push(pathParts.join(' ') + ' Z');
+          }
+          // Start new segment
+          currentSegment = [coord];
+          continue;
+        }
       }
+      
+      currentSegment.push(coord);
     }
     
-    const pathParts = coordinates.map((coord, index) => {
-      const [lng, lat] = coord;
-      const [x, y] = projectToSVG(lng, lat, width, height);
-      return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
-    });
+    // Add the final segment
+    if (currentSegment.length > 1) {
+      const pathParts = currentSegment.map((coord, index) => {
+        const [lng, lat] = coord;
+        const [x, y] = projectToSVG(lng, lat, width, height);
+        return index === 0 ? `M ${x} ${y}` : `L ${x} ${y}`;
+      });
+      paths.push(pathParts.join(' ') + ' Z');
+    }
     
-    return pathParts.join(' ') + ' Z';
+    return paths;
   };
 
   const renderCountry = (country: GeoJSONFeature, width: number, height: number) => {
@@ -74,32 +99,33 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     const isSelected = countryName === selectedCountry;
     const { geometry } = country;
     
-    const paths: string[] = [];
+    const allPaths: string[] = [];
     
     if (geometry.type === 'Polygon') {
       geometry.coordinates.forEach((ring) => {
-        paths.push(convertCoordinatesToPath(ring as number[][], width, height));
+        allPaths.push(...convertCoordinatesToPath(ring as number[][], width, height));
       });
     } else if (geometry.type === 'MultiPolygon') {
       geometry.coordinates.forEach((polygon) => {
         polygon.forEach((ring) => {
-          paths.push(convertCoordinatesToPath(ring as number[][], width, height));
+          allPaths.push(...convertCoordinatesToPath(ring as number[][], width, height));
         });
       });
     }
     
-    return paths
-      .filter(path => path !== '') // Filter out empty paths from antimeridian wrapping
+    return allPaths
+      .filter(path => path !== '')
       .map((path, index) => (
         <path
           key={`${countryName}-${index}`}
           d={path}
-          fill={isSelected ? "hsl(0, 85%, 25%)" : "hsl(120, 15%, 15%)"}
-          stroke={isSelected ? "hsl(0, 100%, 50%)" : "hsl(0, 50%, 20%)"}
-          strokeWidth={isSelected ? 3 : 0.8}
+          fill={isSelected ? "#8b0000" : "#0a2040"}
+          stroke={isSelected ? "#ff3333" : "#ff3333"}
+          strokeWidth={isSelected ? 2 : 0.5}
+          strokeOpacity={isSelected ? 1 : 0.3}
           className={isSelected ? "animate-pulse" : ""}
           style={isSelected ? {
-            filter: "drop-shadow(0 0 8px hsl(0, 100%, 50%))"
+            filter: "drop-shadow(0 0 8px #ff3333)"
           } : {}}
         />
       ));
