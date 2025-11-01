@@ -22,17 +22,6 @@ interface GeoJSONFeature {
   };
 }
 
-interface ActiveAttack {
-  id: string;
-  fromCountry: string;
-  toCountry: string;
-  fromCoords: [number, number];
-  toCoords: [number, number];
-  startTime: number;
-  type: 'invasion' | 'battle' | 'aerial_assault' | 'naval_assault' | 'nuclear_strike';
-  strength: number;
-}
-
 interface Aircraft {
   id: string;
   latitude: number;
@@ -43,7 +32,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [warIntensity, setWarIntensity] = useState([0]);
-  const [activeAttacks, setActiveAttacks] = useState<ActiveAttack[]>([]);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
 
   useEffect(() => {
@@ -92,62 +80,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return centroids;
   }, [countries]);
 
-  // War attack generation based on intensity
-  useEffect(() => {
-    if (warIntensity[0] === 0) {
-      setActiveAttacks([]);
-      return;
-    }
-
-    const countryNames = Object.keys(countryCentroids);
-    if (countryNames.length < 2) return;
-
-    const attackTypes: ActiveAttack['type'][] = ['invasion', 'battle', 'aerial_assault', 'naval_assault'];
-    
-    // Add nuclear strikes at very high intensity
-    if (warIntensity[0] > 90) {
-      attackTypes.push('nuclear_strike');
-    }
-
-    const interval = setInterval(() => {
-      const numAttacks = Math.floor(warIntensity[0] / 15) + 1;
-      const newAttacks: ActiveAttack[] = [];
-
-      for (let i = 0; i < numAttacks; i++) {
-        const isFromSelected = Math.random() < 0.4;
-        const fromCountry = isFromSelected 
-          ? selectedCountry 
-          : countryNames[Math.floor(Math.random() * countryNames.length)];
-        
-        let toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
-        while (toCountry === fromCountry) {
-          toCountry = countryNames[Math.floor(Math.random() * countryNames.length)];
-        }
-
-        if (countryCentroids[fromCountry] && countryCentroids[toCountry]) {
-          const attackType = attackTypes[Math.floor(Math.random() * attackTypes.length)];
-          newAttacks.push({
-            id: `attack-${Date.now()}-${i}`,
-            fromCountry,
-            toCountry,
-            fromCoords: countryCentroids[fromCountry],
-            toCoords: countryCentroids[toCountry],
-            startTime: Date.now(),
-            type: attackType,
-            strength: Math.floor(Math.random() * 30) + 70,
-          });
-        }
-      }
-
-      setActiveAttacks((prev) => {
-        const now = Date.now();
-        const filtered = prev.filter((attack) => now - attack.startTime < 3000);
-        return [...filtered, ...newAttacks];
-      });
-    }, Math.max(200, 1200 - warIntensity[0] * 8));
-
-    return () => clearInterval(interval);
-  }, [warIntensity, countryCentroids, selectedCountry]);
 
   // Convert lat/lng to SVG coordinates using Equirectangular projection
   const projectToSVG = (lng: number, lat: number, width: number, height: number) => {
@@ -243,401 +175,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const viewBoxWidth = 1000;
   const viewBoxHeight = 500;
 
-  const getAttackVisual = (attack: ActiveAttack) => {
-    const [x1, y1] = projectToSVG(attack.fromCoords[0], attack.fromCoords[1], viewBoxWidth, viewBoxHeight);
-    const [x2, y2] = projectToSVG(attack.toCoords[0], attack.toCoords[1], viewBoxWidth, viewBoxHeight);
-    
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    // Create curved path for missiles
-    const curvature = distance * 0.25;
-    const midX = (x1 + x2) / 2 - (dy / distance) * curvature;
-    const midY = (y1 + y2) / 2 + (dx / distance) * curvature;
-    const pathData = `M ${x1},${y1} Q ${midX},${midY} ${x2},${y2}`;
-    
-    switch (attack.type) {
-      case 'nuclear_strike':
-        return (
-          <g key={attack.id}>
-            {/* Missile trail with glow */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke="url(#nuclearGradient)"
-              strokeWidth="4"
-              opacity="0.95"
-              style={{ filter: "drop-shadow(0 0 12px #00ff00)" }}
-            >
-              <animate attributeName="stroke-dasharray" from="0,1000" to="1000,0" dur="1.2s" fill="freeze" />
-              <animate attributeName="opacity" from="1" to="0" begin="1.2s" dur="0.3s" fill="freeze" />
-            </path>
-            {/* Missile head */}
-            <circle r="4" fill="#ffff00" opacity="0.95">
-              <animateMotion path={pathData} dur="1.2s" fill="freeze" />
-              <animate attributeName="opacity" from="0.95" to="0" begin="1.2s" dur="0.1s" fill="freeze" />
-            </circle>
-            {/* Initial flash */}
-            <circle cx={x2} cy={y2} r="0" fill="#ffffff" opacity="0">
-              <animate attributeName="r" from="0" to="50" begin="1.2s" dur="0.2s" fill="freeze" />
-              <animate attributeName="opacity" values="0;1;0" begin="1.2s" dur="0.2s" fill="freeze" />
-            </circle>
-            {/* Main nuclear explosion */}
-            <circle cx={x2} cy={y2} r="0" fill="#ffaa00" opacity="0">
-              <animate attributeName="r" from="0" to="40" begin="1.4s" dur="0.4s" fill="freeze" />
-              <animate attributeName="opacity" values="0;1;0.8;0" begin="1.4s" dur="1.2s" fill="freeze" />
-            </circle>
-            {/* Secondary explosion ring */}
-            <circle cx={x2} cy={y2} r="40" fill="none" stroke="#ff0000" strokeWidth="4" opacity="0">
-              <animate attributeName="r" from="40" to="80" begin="1.8s" dur="0.6s" fill="freeze" />
-              <animate attributeName="opacity" values="0;1;0" begin="1.8s" dur="0.6s" fill="freeze" />
-            </circle>
-            {/* Shockwave */}
-            <circle cx={x2} cy={y2} r="80" fill="none" stroke="#ffff00" strokeWidth="2" opacity="0">
-              <animate attributeName="r" from="80" to="120" begin="2.2s" dur="0.5s" fill="freeze" />
-              <animate attributeName="opacity" values="0;0.7;0" begin="2.2s" dur="0.5s" fill="freeze" />
-            </circle>
-            {/* Debris particles */}
-            {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
-              const rad = (angle * Math.PI) / 180;
-              const endX = x2 + Math.cos(rad) * 60;
-              const endY = y2 + Math.sin(rad) * 60;
-              return (
-                <line
-                  key={`debris-${angle}`}
-                  x1={x2}
-                  y1={y2}
-                  x2={x2}
-                  y2={y2}
-                  stroke="#ff6600"
-                  strokeWidth="2"
-                  opacity="0"
-                >
-                  <animate attributeName="x2" from={x2} to={endX} begin="1.5s" dur="0.8s" fill="freeze" />
-                  <animate attributeName="y2" from={y2} to={endY} begin="1.5s" dur="0.8s" fill="freeze" />
-                  <animate attributeName="opacity" values="0;1;0" begin="1.5s" dur="0.8s" fill="freeze" />
-                </line>
-              );
-            })}
-          </g>
-        );
-      
-      case 'invasion':
-        return (
-          <g key={attack.id}>
-            {/* Multiple attack waves */}
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <g key={`${attack.id}-wave-${i}`}>
-                <path
-                  d={pathData}
-                  fill="none"
-                  stroke="#ff3333"
-                  strokeWidth="2.5"
-                  strokeDasharray="8,4"
-                  opacity="0"
-                  style={{ filter: "drop-shadow(0 0 6px #ff0000)" }}
-                >
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    from="1000"
-                    to="0"
-                    begin={`${i * 0.25}s`}
-                    dur="1.8s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;0.9;0.9;0"
-                    begin={`${i * 0.25}s`}
-                    dur="2s"
-                    fill="freeze"
-                  />
-                </path>
-                {/* Tank/unit marker */}
-                <rect
-                  x={x1 - 3}
-                  y={y1 - 3}
-                  width="6"
-                  height="6"
-                  fill="#ff0000"
-                  opacity="0"
-                >
-                  <animateMotion path={pathData} begin={`${i * 0.25}s`} dur="1.8s" fill="freeze" />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;1;0"
-                    begin={`${i * 0.25}s`}
-                    dur="2s"
-                    fill="freeze"
-                  />
-                </rect>
-                {/* Impact burst */}
-                <circle cx={x2} cy={y2} r="0" fill="#ff3333" opacity="0">
-                  <animate
-                    attributeName="r"
-                    from="0"
-                    to="18"
-                    begin={`${i * 0.25 + 1.8}s`}
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;0"
-                    begin={`${i * 0.25 + 1.8}s`}
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                </circle>
-                {/* Smoke trail */}
-                {[0, 1, 2, 3].map((j) => (
-                  <circle
-                    key={`smoke-${j}`}
-                    cx={x2 - j * 15}
-                    cy={y2}
-                    r="4"
-                    fill="#666666"
-                    opacity="0"
-                  >
-                    <animate
-                      attributeName="r"
-                      from="4"
-                      to="10"
-                      begin={`${i * 0.25 + 1.5 + j * 0.1}s`}
-                      dur="0.6s"
-                      fill="freeze"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      values="0;0.5;0"
-                      begin={`${i * 0.25 + 1.5 + j * 0.1}s`}
-                      dur="0.6s"
-                      fill="freeze"
-                    />
-                  </circle>
-                ))}
-              </g>
-            ))}
-          </g>
-        );
-      
-      case 'aerial_assault':
-        return (
-          <g key={attack.id}>
-            {/* Flight path trail */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke="url(#aerialGradient)"
-              strokeWidth="2"
-              strokeDasharray="20,10"
-              opacity="0.7"
-              style={{ filter: "drop-shadow(0 0 4px #ff6600)" }}
-            >
-              <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="1.5s" fill="freeze" />
-              <animate attributeName="opacity" from="0.7" to="0" begin="1.5s" dur="0.3s" fill="freeze" />
-            </path>
-            {/* Multiple bombers */}
-            {[0, 0.3, 0.6].map((delay, i) => (
-              <g key={`bomber-${i}`}>
-                {/* Bomber */}
-                <polygon
-                  points="-4,0 4,0 0,-8"
-                  fill="#ff6600"
-                  opacity="0"
-                  style={{ filter: "drop-shadow(0 0 4px #ff3333)" }}
-                >
-                  <animateMotion path={pathData} begin={`${delay}s`} dur="1.5s" fill="freeze" />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;1;0"
-                    begin={`${delay}s`}
-                    dur="1.8s"
-                    fill="freeze"
-                  />
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 0 0`}
-                    to={`${Math.atan2(dy, dx) * (180 / Math.PI)} 0 0`}
-                    dur="0.1s"
-                    fill="freeze"
-                  />
-                </polygon>
-                {/* Bombs */}
-                {[0, 0.2, 0.4].map((bombDelay, j) => (
-                  <circle
-                    key={`bomb-${j}`}
-                    r="2.5"
-                    fill="#ff3333"
-                    opacity="0"
-                  >
-                    <animateMotion path={pathData} begin={`${delay + bombDelay}s`} dur={`${1.5 - bombDelay}s`} fill="freeze" />
-                    <animate
-                      attributeName="opacity"
-                      values="0;1;1;0"
-                      begin={`${delay + bombDelay}s`}
-                      dur={`${1.8 - bombDelay}s`}
-                      fill="freeze"
-                    />
-                  </circle>
-                ))}
-              </g>
-            ))}
-            {/* Continuous explosions */}
-            <circle cx={x2} cy={y2} r="0" fill="#ff3333" opacity="0">
-              <animate attributeName="r" values="0;15;0" dur="0.5s" begin="0.8s" repeatCount="3" />
-              <animate attributeName="opacity" values="0;0.9;0" dur="0.5s" begin="0.8s" repeatCount="3" />
-            </circle>
-            <circle cx={x2} cy={y2} r="15" fill="none" stroke="#ff6600" strokeWidth="3" opacity="0">
-              <animate attributeName="r" values="15;30;45" dur="0.5s" begin="0.8s" repeatCount="3" />
-              <animate attributeName="opacity" values="0;0.8;0" dur="0.5s" begin="0.8s" repeatCount="3" />
-            </circle>
-          </g>
-        );
-      
-      case 'naval_assault':
-        return (
-          <g key={attack.id}>
-            {/* Wave path */}
-            <path
-              d={pathData}
-              fill="none"
-              stroke="url(#navalGradient)"
-              strokeWidth="3"
-              strokeDasharray="20,10"
-              opacity="0"
-              style={{ filter: "drop-shadow(0 0 8px #0088ff)" }}
-            >
-              <animate attributeName="stroke-dashoffset" from="1000" to="0" dur="2s" fill="freeze" />
-              <animate attributeName="opacity" values="0;0.9;0.9;0" dur="2.3s" fill="freeze" />
-            </path>
-            {/* Ship */}
-            <rect
-              x={-6}
-              y={-4}
-              width="12"
-              height="8"
-              fill="#0088ff"
-              opacity="0"
-              rx="2"
-              style={{ filter: "drop-shadow(0 0 4px #0088ff)" }}
-            >
-              <animateMotion path={pathData} dur="2s" fill="freeze" />
-              <animate
-                attributeName="opacity"
-                values="0;1;1;0"
-                dur="2.3s"
-                fill="freeze"
-              />
-            </rect>
-            {/* Naval bombardment */}
-            {[0, 0.4, 0.8, 1.2].map((delay, i) => (
-              <g key={`shell-${i}`}>
-                <ellipse rx="2" ry="3" fill="#ff6600" opacity="0">
-                  <animateMotion path={pathData} begin={`${delay}s`} dur={`${2 - delay}s`} fill="freeze" />
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;1;0"
-                    begin={`${delay}s`}
-                    dur={`${2.3 - delay}s`}
-                    fill="freeze"
-                  />
-                </ellipse>
-                <circle cx={x2} cy={y2} r="0" fill="#0088ff" opacity="0">
-                  <animate
-                    attributeName="r"
-                    from="0"
-                    to="22"
-                    begin={`${2 + delay * 0.5}s`}
-                    dur="0.4s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;0.9;0"
-                    begin={`${2 + delay * 0.5}s`}
-                    dur="0.4s"
-                    fill="freeze"
-                  />
-                </circle>
-              </g>
-            ))}
-            {/* Water splash effects */}
-            {[0, 60, 120, 180, 240, 300].map((angle) => {
-              const rad = (angle * Math.PI) / 180;
-              const splashX = x2 + Math.cos(rad) * 30;
-              const splashY = y2 + Math.sin(rad) * 30;
-              return (
-                <circle
-                  key={`splash-${angle}`}
-                  cx={x2}
-                  cy={y2}
-                  r="3"
-                  fill="#66ccff"
-                  opacity="0"
-                >
-                  <animate attributeName="cx" from={x2} to={splashX} begin="2s" dur="0.5s" fill="freeze" />
-                  <animate attributeName="cy" from={y2} to={splashY} begin="2s" dur="0.5s" fill="freeze" />
-                  <animate attributeName="opacity" values="0;0.8;0" begin="2s" dur="0.5s" fill="freeze" />
-                </circle>
-              );
-            })}
-          </g>
-        );
-      
-      default: // battle
-        return (
-          <g key={attack.id}>
-            {/* Battle line with energy pulses */}
-            <line
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="#ff0000"
-              strokeWidth="3"
-              opacity="0"
-              strokeDasharray="10,5"
-              style={{ filter: "drop-shadow(0 0 6px #ff0000)" }}
-            >
-              <animate attributeName="stroke-dashoffset" from="0" to="30" dur="0.5s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0;0.8;0.8;0" dur="2.5s" fill="freeze" />
-            </line>
-            {/* Energy pulses traveling both ways */}
-            {[0, 0.5, 1, 1.5].map((delay) => (
-              <circle key={`pulse-${delay}`} cx={x1} cy={y1} r="5" fill="#ff3333" opacity="0">
-                <animate attributeName="cx" from={x1} to={x2} begin={`${delay}s`} dur="0.8s" fill="freeze" />
-                <animate attributeName="cy" from={y1} to={y2} begin={`${delay}s`} dur="0.8s" fill="freeze" />
-                <animate
-                  attributeName="opacity"
-                  values="0;1;1;0"
-                  begin={`${delay}s`}
-                  dur="0.8s"
-                  fill="freeze"
-                />
-              </circle>
-            ))}
-            {/* Continuous small explosions at midpoint */}
-            <circle cx={(x1 + x2) / 2} cy={(y1 + y2) / 2} r="0" fill="#ff6600" opacity="0">
-              <animate attributeName="r" values="0;12;0" dur="0.4s" repeatCount="indefinite" />
-              <animate attributeName="opacity" values="0;0.9;0" dur="0.4s" repeatCount="indefinite" />
-            </circle>
-          </g>
-        );
-    }
-  };
-
-  const shouldShake = activeAttacks.length > 5 || activeAttacks.some(a => a.type === 'nuclear_strike');
-  const hasNuclear = activeAttacks.some(a => a.type === 'nuclear_strike');
-
   return (
-    <div className={`relative w-full h-screen bg-background overflow-hidden ${shouldShake ? 'animate-shake' : ''}`}>
-      {/* Nuclear flash overlay */}
-      {hasNuclear && (
-        <div className="absolute inset-0 bg-white pointer-events-none z-30 animate-pulse opacity-20" />
-      )}
+    <div className="relative w-full h-screen bg-background overflow-hidden">
       {/* Subtle scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -686,80 +225,150 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
           
-          {/* Radar scanning effect around selected country */}
-          {selectedCountry && countryCentroids[selectedCountry] && (
-            <g>
-              {/* Radar circles */}
-              <circle
-                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
-                r="0"
-                fill="none"
-                stroke="#00ff00"
-                strokeWidth="2"
-                opacity="0.6"
-              >
-                <animate attributeName="r" from="0" to="150" dur="3s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.8;0" dur="3s" repeatCount="indefinite" />
-              </circle>
-              <circle
-                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
-                r="0"
-                fill="none"
-                stroke="#00ff00"
-                strokeWidth="2"
-                opacity="0.6"
-              >
-                <animate attributeName="r" from="0" to="150" dur="3s" begin="1s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.8;0" dur="3s" begin="1s" repeatCount="indefinite" />
-              </circle>
-              <circle
-                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
-                r="0"
-                fill="none"
-                stroke="#00ff00"
-                strokeWidth="2"
-                opacity="0.6"
-              >
-                <animate attributeName="r" from="0" to="150" dur="3s" begin="2s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.8;0" dur="3s" begin="2s" repeatCount="indefinite" />
-              </circle>
-              
-              {/* Rotating radar sweep */}
-              <line
-                x1={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                y1={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
-                x2={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                y2={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1] - 150}
-                stroke="url(#radarGradient)"
-                strokeWidth="40"
-                opacity="0.4"
-              >
-                <animateTransform
-                  attributeName="transform"
-                  type="rotate"
-                  from={`0 ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]} ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}`}
-                  to={`360 ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]} ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}`}
-                  dur="4s"
-                  repeatCount="indefinite"
+          {/* Circular radar display around selected country */}
+          {selectedCountry && countryCentroids[selectedCountry] && (() => {
+            const [cx, cy] = projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight);
+            const radarRadius = 150;
+            const rings = 8;
+            const degrees = [0, 45, 90, 135, 180, 225, 270, 315];
+            
+            return (
+              <g>
+                {/* Concentric rings */}
+                {Array.from({ length: rings }).map((_, i) => {
+                  const r = ((i + 1) / rings) * radarRadius;
+                  return (
+                    <circle
+                      key={`ring-${i}`}
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="0.5"
+                      opacity="0.3"
+                    />
+                  );
+                })}
+                
+                {/* Grid lines (radials) */}
+                {degrees.map((deg) => {
+                  const rad = (deg * Math.PI) / 180;
+                  const x2 = cx + Math.sin(rad) * radarRadius;
+                  const y2 = cy - Math.cos(rad) * radarRadius;
+                  return (
+                    <line
+                      key={`radial-${deg}`}
+                      x1={cx}
+                      y1={cy}
+                      x2={x2}
+                      y2={y2}
+                      stroke="#00ff00"
+                      strokeWidth="0.5"
+                      opacity="0.3"
+                    />
+                  );
+                })}
+                
+                {/* Outer circle with glow */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={radarRadius}
+                  fill="none"
+                  stroke="#00ff00"
+                  strokeWidth="2"
+                  opacity="0.8"
+                  style={{ filter: "drop-shadow(0 0 10px #00ff00)" }}
                 />
-              </line>
-              
-              {/* Center dot */}
-              <circle
-                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
-                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
-                r="5"
-                fill="#00ff00"
-                opacity="0.9"
-              />
-            </g>
-          )}
-          
-          {/* Active attacks */}
-          {activeAttacks.map((attack) => getAttackVisual(attack))}
+                
+                {/* Degree markers */}
+                {degrees.map((deg) => {
+                  const rad = (deg * Math.PI) / 180;
+                  const x = cx + Math.sin(rad) * (radarRadius + 15);
+                  const y = cy - Math.cos(rad) * (radarRadius + 15);
+                  return (
+                    <text
+                      key={`deg-${deg}`}
+                      x={x}
+                      y={y}
+                      fill="#00ff00"
+                      fontSize="12"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      opacity="0.6"
+                    >
+                      {deg}
+                    </text>
+                  );
+                })}
+                
+                {/* Rotating sweep with gradient trail */}
+                <defs>
+                  <linearGradient id="sweepGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
+                    <stop offset="50%" stopColor="#00ff00" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#00ff00" stopOpacity="0.8" />
+                  </linearGradient>
+                  <filter id="sweepGlow">
+                    <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
+                
+                {/* Sweep line with trail effect */}
+                <path
+                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 1 ${cx + radarRadius * 0.5} ${cy - radarRadius * 0.866}`}
+                  fill="url(#sweepGradient)"
+                  opacity="0.5"
+                  filter="url(#sweepGlow)"
+                >
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from={`0 ${cx} ${cy}`}
+                    to={`360 ${cx} ${cy}`}
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+                
+                {/* Sweep line */}
+                <line
+                  x1={cx}
+                  y1={cy}
+                  x2={cx}
+                  y2={cy - radarRadius}
+                  stroke="#00ff00"
+                  strokeWidth="2"
+                  opacity="0.9"
+                  style={{ filter: "drop-shadow(0 0 5px #00ff00)" }}
+                >
+                  <animateTransform
+                    attributeName="transform"
+                    type="rotate"
+                    from={`0 ${cx} ${cy}`}
+                    to={`360 ${cx} ${cy}`}
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                </line>
+                
+                {/* Center dot */}
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r="4"
+                  fill="#00ff00"
+                  opacity="1"
+                  style={{ filter: "drop-shadow(0 0 5px #00ff00)" }}
+                />
+              </g>
+            );
+          })()}
           
           {/* Aircraft positions */}
           {aircraft.map((plane) => {
