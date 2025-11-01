@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Slider } from './ui/slider';
+
 import { HelpCircle, Plane } from 'lucide-react';
 import { feature } from 'topojson-client';
 
@@ -31,7 +31,7 @@ interface Aircraft {
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [warIntensity, setWarIntensity] = useState([0]);
+  const [warLevel, setWarLevel] = useState(1);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
 
   useEffect(() => {
@@ -302,49 +302,55 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                 {/* Enhanced rotating sweep with fade trail */}
                 <defs>
                   <radialGradient id="sweepTrailGradient">
-                    <stop offset="0%" stopColor="#00ff00" stopOpacity="0.7" />
-                    <stop offset="30%" stopColor="#00ff00" stopOpacity="0.4" />
-                    <stop offset="60%" stopColor="#00ff00" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
+                    <stop offset="0%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.3 + warLevel * 0.15} />
+                    <stop offset="30%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.2 + warLevel * 0.1} />
+                    <stop offset="60%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.1 + warLevel * 0.05} />
+                    <stop offset="100%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity="0" />
                   </radialGradient>
                 </defs>
                 
-                {/* Sweep arc trail (behind the line) - drawn FIRST */}
-                <path
-                  d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 0 ${cx - radarRadius * Math.sin(Math.PI * 0.4)} ${cy - radarRadius * Math.cos(Math.PI * 0.4)} Z`}
-                  fill="url(#sweepTrailGradient)"
-                  opacity="0.4"
-                >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 ${cx} ${cy}`}
-                    to={`360 ${cx} ${cy}`}
-                    dur="4s"
-                    repeatCount="indefinite"
-                  />
-                </path>
+                {/* Multiple sweep trails for higher levels */}
+                {Array.from({ length: warLevel }).map((_, idx) => (
+                  <path
+                    key={`sweep-${idx}`}
+                    d={`M ${cx} ${cy} L ${cx} ${cy - radarRadius} A ${radarRadius} ${radarRadius} 0 0 0 ${cx - radarRadius * Math.sin(Math.PI * 0.4)} ${cy - radarRadius * Math.cos(Math.PI * 0.4)} Z`}
+                    fill="url(#sweepTrailGradient)"
+                    opacity={0.4 / (idx + 1)}
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from={`${idx * (360 / warLevel)} ${cx} ${cy}`}
+                      to={`${360 + idx * (360 / warLevel)} ${cx} ${cy}`}
+                      dur={`${5 - warLevel}s`}
+                      repeatCount="indefinite"
+                    />
+                  </path>
+                ))}
                 
-                {/* Primary sweep line (in front) - drawn LAST */}
-                <line
-                  x1={cx}
-                  y1={cy}
-                  x2={cx}
-                  y2={cy - radarRadius}
-                  stroke="#00ff00"
-                  strokeWidth="2"
-                  opacity="1"
-                  style={{ filter: "drop-shadow(0 0 6px #00ff00)" }}
-                >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 ${cx} ${cy}`}
-                    to={`360 ${cx} ${cy}`}
-                    dur="4s"
-                    repeatCount="indefinite"
-                  />
-                </line>
+                {/* Primary sweep lines (in front) - drawn LAST */}
+                {Array.from({ length: warLevel }).map((_, idx) => (
+                  <line
+                    key={`line-${idx}`}
+                    x1={cx}
+                    y1={cy}
+                    x2={cx}
+                    y2={cy - radarRadius}
+                    stroke={warLevel >= 4 ? "#ff0000" : "#00ff00"}
+                    strokeWidth={1 + warLevel * 0.3}
+                    opacity="1"
+                    style={{ filter: `drop-shadow(0 0 ${4 + warLevel * 2}px ${warLevel >= 4 ? "#ff0000" : "#00ff00"})` }}
+                  >
+                    <animateTransform
+                      attributeName="transform"
+                      type="rotate"
+                      from={`${idx * (360 / warLevel)} ${cx} ${cy}`}
+                      to={`${360 + idx * (360 / warLevel)} ${cx} ${cy}`}
+                      dur={`${5 - warLevel}s`}
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                ))}
                 
                 {/* Center dot */}
                 <circle
@@ -359,16 +365,31 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })()}
           
-          {/* Aircraft positions */}
+          {/* Aircraft positions with war-level based styling */}
           {aircraft.map((plane) => {
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
+            const pulseSize = 6 + warLevel * 2;
+            const coreSize = 3 + warLevel * 0.5;
             return (
               <g key={plane.id} transform={`translate(${x}, ${y})`}>
-                <circle cx="0" cy="0" r="8" fill="#ff0000" opacity="0.3" className="animate-pulse" />
-                <circle cx="0" cy="0" r="4" fill="#ff3333" opacity="0.8" />
+                <circle 
+                  cx="0" 
+                  cy="0" 
+                  r={pulseSize} 
+                  fill={warLevel >= 4 ? "#ff0000" : "#ff3333"} 
+                  opacity={0.2 + warLevel * 0.1} 
+                  className="animate-pulse" 
+                  style={{ filter: warLevel >= 3 ? `drop-shadow(0 0 ${warLevel * 2}px #ff0000)` : undefined }}
+                />
+                <circle cx="0" cy="0" r={coreSize} fill="#ff3333" opacity={0.7 + warLevel * 0.05} />
                 <foreignObject x="-10" y="-10" width="20" height="20">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Plane size={14} color="#ffffff" fill="#ff0000" />
+                    <Plane 
+                      size={12 + warLevel * 2} 
+                      color="#ffffff" 
+                      fill={warLevel >= 4 ? "#ff0000" : "#ff3333"}
+                      style={{ filter: warLevel >= 4 ? 'drop-shadow(0 0 4px #ff0000)' : undefined }}
+                    />
                   </div>
                 </foreignObject>
               </g>
@@ -421,23 +442,38 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* Radar sensitivity slider */}
-      <div className="absolute bottom-8 right-8 bg-card/95 border-2 border-[#00ff00] px-6 py-4 z-20 animate-scale-in">
+      {/* War Intensity Level Buttons */}
+      <div className="absolute bottom-8 right-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in">
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#00ff00] animate-pulse" />
-            <p className="text-xs text-[#00ff00] tracking-wider font-mono">
-              RADAR SENSITIVITY
+          <div className="flex items-center gap-2 mb-4">
+            <div 
+              className="w-2 h-2 rounded-full animate-pulse" 
+              style={{ backgroundColor: warLevel >= 4 ? '#ff0000' : '#00ff00' }}
+            />
+            <p 
+              className="text-xs tracking-wider font-mono"
+              style={{ color: warLevel >= 4 ? '#ff0000' : '#00ff00' }}
+            >
+              WAR INTENSITY: LEVEL {warLevel}
             </p>
-            <span className="text-xs text-[#00ff00] font-mono ml-auto">{warIntensity[0]}%</span>
           </div>
-          <Slider
-            value={warIntensity}
-            onValueChange={setWarIntensity}
-            max={100}
-            step={1}
-            className="w-48"
-          />
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((level) => (
+              <Button
+                key={level}
+                onClick={() => setWarLevel(level)}
+                className={`w-12 h-12 text-xs font-mono border-2 transition-all ${
+                  warLevel === level
+                    ? level >= 4 
+                      ? 'bg-[#ff0000] border-[#ff0000] text-white shadow-[0_0_20px_rgba(255,0,0,0.8)]' 
+                      : 'bg-[#00ff00] border-[#00ff00] text-black shadow-[0_0_20px_rgba(0,255,0,0.8)]'
+                    : 'bg-card border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary'
+                }`}
+              >
+                {level}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
