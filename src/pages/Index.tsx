@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import LandingScreen from '@/components/LandingScreen';
 import Globe from '@/components/Globe';
+import MapView2D from '@/components/MapView2D';
 import { toast } from 'sonner';
 
 const Index = () => {
   const [showGlobe, setShowGlobe] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [showMapView, setShowMapView] = useState(false);
 
   const handleStart = () => {
     setShowGlobe(true);
@@ -13,18 +15,26 @@ const Index = () => {
 
   const handleCountrySelect = (country: string) => {
     setSelectedCountry(country);
-    toast.success(`${country} selected`, {
-      description: "Your nation stands ready for war.",
-      duration: 3000,
-    });
+    // Transition to 2D map view with animation delay
+    setTimeout(() => {
+      setShowMapView(true);
+      toast.success(`${country} selected`, {
+        description: "Your nation stands ready for war.",
+        duration: 3000,
+      });
+    }, 800);
   };
 
   return (
     <main className="min-h-screen bg-background">
       {!showGlobe ? (
         <LandingScreen onStart={handleStart} />
-      ) : (
+      ) : showMapView && selectedCountry ? (
         <div className="animate-fade-in">
+          <MapView2D selectedCountry={selectedCountry} />
+        </div>
+      ) : (
+        <div className={selectedCountry ? "animate-fade-out" : "animate-fade-in"}>
           <Globe onCountrySelect={handleCountrySelect} />
           
           {selectedCountry && (

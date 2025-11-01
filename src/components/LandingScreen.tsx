@@ -26,7 +26,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       
       <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
         <div className="space-y-6 text-center">
-          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow leading-tight px-4">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary text-glow leading-tight px-4 tracking-[0.3em]">
             WAR PROTOCOL
           </h1>
           
