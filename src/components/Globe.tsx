@@ -278,11 +278,6 @@ function EarthGlobe({
           opacity={0.15}
         />
       </Sphere>
-
-      {/* Capital city markers */}
-      {MAJOR_CAPITALS.map((capital) => (
-        <CapitalMarker key={capital.name} capital={capital} radius={radius} />
-      ))}
     </group>
   );
 }
