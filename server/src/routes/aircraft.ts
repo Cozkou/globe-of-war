@@ -68,6 +68,10 @@ export function createAircraftRouter(config: AppConfig): Router {
         async () => {
           return await fetchAllAircraftStates({
             bbox: bbox || undefined,
+            // Try OAuth2 first (new method - preferred)
+            clientId: config.opensky.clientId,
+            clientSecret: config.opensky.clientSecret,
+            // Fall back to Basic Auth (legacy method)
             username: config.opensky.username,
             password: config.opensky.password,
           });

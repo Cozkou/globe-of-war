@@ -30,12 +30,15 @@ const Index = () => {
       {!showGlobe ? (
         <LandingScreen onStart={handleStart} />
       ) : showMapView && selectedCountry ? (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in" key="mapview">
           <MapView2D selectedCountry={selectedCountry} />
         </div>
       ) : (
-        <div className={selectedCountry ? "animate-fade-out" : "animate-fade-in"}>
-          <Globe onCountrySelect={handleCountrySelect} />
+        <div className={selectedCountry ? "animate-fade-out" : "animate-fade-in"} key="globe">
+          {/* Only render Globe when not transitioning to map view */}
+          {!showMapView && (
+            <Globe onCountrySelect={handleCountrySelect} />
+          )}
           
           {selectedCountry && (
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-card/95 border-2 border-primary px-8 py-4 animate-scale-in">

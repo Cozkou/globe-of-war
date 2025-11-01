@@ -141,10 +141,16 @@ export interface OpenSkyRequestOptions {
   /** Optional bounding box to filter aircraft by geographic region */
   bbox?: BoundingBox;
   
-  /** Username for authenticated requests (optional, provides higher rate limits) */
+  /** Basic Auth - Username for authenticated requests (legacy method, optional) */
   username?: string;
   
-  /** Password for authenticated requests (optional) */
+  /** Basic Auth - Password for authenticated requests (legacy method, optional) */
   password?: string;
+  
+  /** OAuth2 - Client ID for authenticated requests (new method, optional) */
+  clientId?: string;
+  
+  /** OAuth2 - Client Secret for authenticated requests (new method, optional) */
+  clientSecret?: string;
 }
 

@@ -22,6 +22,85 @@ import type {
 const OPENSKY_API_BASE_URL = 'https://opensky-network.org/api';
 
 /**
+ * OAuth2 Token Management
+ */
+interface TokenCache {
+  accessToken: string;
+  expiresAt: number;
+}
+
+let tokenCache: TokenCache | null = null;
+
+/**
+ * Get OAuth2 access token using client credentials flow
+ * Caches the token until it expires to avoid unnecessary token requests
+ * 
+ * @param clientId - OAuth2 client ID
+ * @param clientSecret - OAuth2 client secret
+ * @returns Promise resolving to access token string
+ */
+async function getOAuth2Token(clientId: string, clientSecret: string): Promise<string> {
+  // Return cached token if still valid (with 60 second buffer to avoid expiration during request)
+  if (tokenCache && Date.now() < tokenCache.expiresAt - 60000) {
+    return tokenCache.accessToken;
+  }
+  
+  try {
+    // OAuth2 Client Credentials Flow
+    // According to OpenSky docs and actual implementation:
+    // Token endpoint is at auth.opensky-network.org
+    const tokenUrl = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
+    
+    console.log(`🔑 Requesting OAuth2 token from: ${tokenUrl}`);
+    
+    const response = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    
+    console.log(`📡 OAuth2 token response status: ${response.status}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`❌ OAuth2 token request failed: ${response.status}`, errorText);
+      throw new Error(`Failed to get OAuth2 token: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json() as {
+      access_token: string;
+      expires_in?: number;
+      token_type?: string;
+    };
+    
+    // Cache the token (default expiration is usually 3600 seconds / 1 hour)
+    const expiresIn = data.expires_in || 3600;
+    tokenCache = {
+      accessToken: data.access_token,
+      expiresAt: Date.now() + (expiresIn * 1000),
+    };
+    
+    console.log(`✅ OAuth2 token obtained successfully (expires in ${expiresIn}s)`);
+    
+    return tokenCache.accessToken;
+  } catch (error) {
+    // Clear invalid cache on error
+    tokenCache = null;
+    if (error instanceof Error) {
+      throw new Error(`OAuth2 token request failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
  * Fetches all aircraft states from OpenSky API
  * 
  * This function sends a GET request to the `/states/all` endpoint which
@@ -55,11 +134,28 @@ export async function fetchAllAircraftStates(
     const url = buildApiUrl('/states/all', options);
     
     // Prepare authentication headers if credentials are provided
-    const headers: HeadersInit = {};
-    if (options.username && options.password) {
+    const headers: Record<string, string> = {};
+    
+    // Try OAuth2 first (new method - preferred)
+    if (options.clientId && options.clientSecret) {
+      try {
+        const accessToken = await getOAuth2Token(options.clientId, options.clientSecret);
+        headers['Authorization'] = `Bearer ${accessToken}`;
+        console.log('🔐 Using OAuth2 authentication');
+      } catch (error) {
+        console.error('❌ OAuth2 authentication failed:', error);
+        throw new Error(`Failed to authenticate with OAuth2: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+    // Fall back to Basic Auth (legacy method)
+    else if (options.username && options.password) {
       // Create Basic Auth credentials using Node.js Buffer
       const credentials = Buffer.from(`${options.username}:${options.password}`).toString('base64');
       headers['Authorization'] = `Basic ${credentials}`;
+      console.log('🔐 Using Basic Auth authentication');
+    }
+    else {
+      console.warn('⚠️  No credentials provided - using anonymous access (rate limited to 1 request/10 sec)');
     }
     
     // Fetch data from OpenSky API
@@ -79,7 +175,7 @@ export async function fetchAllAircraftStates(
     }
     
     // Parse JSON response
-    const data: OpenSkyResponse = await response.json();
+    const data = await response.json() as OpenSkyResponse;
     
     // Validate response structure
     if (!data || typeof data.time !== 'number') {
