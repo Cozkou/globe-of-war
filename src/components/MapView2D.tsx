@@ -216,7 +216,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const viewBoxHeight = 500;
 
   return (
-    <div className={`relative w-full h-screen bg-background overflow-hidden ${warIntensity[0] > 75 ? 'animate-shake' : ''}`}>
+    <div className="relative w-full h-screen bg-background overflow-hidden">
       {/* Subtle scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -255,206 +255,62 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {warBeams.map((beam) => {
             const [x1, y1] = projectToSVG(beam.fromCoords[0], beam.fromCoords[1], viewBoxWidth, viewBoxHeight);
             const [x2, y2] = projectToSVG(beam.toCoords[0], beam.toCoords[1], viewBoxWidth, viewBoxHeight);
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
             
             return (
               <g key={beam.id}>
-                {/* Beam trail */}
                 <line
                   x1={x1}
                   y1={y1}
                   x2={x2}
                   y2={y2}
                   stroke="#ff0000"
-                  strokeWidth="1"
-                  opacity="0"
-                  strokeDasharray="4,4"
+                  strokeWidth="2"
+                  opacity="0.8"
+                  className="animate-pulse"
                   style={{
-                    filter: "drop-shadow(0 0 3px #ff0000)",
+                    filter: "drop-shadow(0 0 4px #ff0000)",
                   }}
                 >
                   <animate
                     attributeName="opacity"
                     from="0"
-                    to="0.4"
-                    dur="0.2s"
+                    to="0.8"
+                    dur="0.3s"
                     fill="freeze"
                   />
                   <animate
                     attributeName="opacity"
-                    from="0.4"
+                    from="0.8"
                     to="0"
-                    begin="1.5s"
-                    dur="0.5s"
+                    begin="1.7s"
+                    dur="0.3s"
                     fill="freeze"
                   />
                 </line>
-                
-                {/* Missile projectile */}
-                <g opacity="0">
-                  <animate
-                    attributeName="opacity"
-                    values="0;1;1;0"
-                    dur="2s"
-                    fill="freeze"
-                  />
-                  
-                  {/* Missile body */}
-                  <ellipse
-                    cx={x1}
-                    cy={y1}
-                    rx="6"
-                    ry="2.5"
-                    fill="#ff3333"
-                    transform={`rotate(${angle} ${x1} ${y1})`}
-                    style={{
-                      filter: "drop-shadow(0 0 6px #ff0000)",
-                    }}
-                  >
-                    <animateMotion
-                      path={`M ${x1} ${y1} L ${x2} ${y2}`}
-                      dur="1.5s"
-                      fill="freeze"
-                    />
-                  </ellipse>
-                  
-                  {/* Missile glow trail */}
-                  <circle
-                    cx={x1}
-                    cy={y1}
-                    r="4"
-                    fill="#ff6666"
-                    opacity="0.6"
-                  >
-                    <animateMotion
-                      path={`M ${x1} ${y1} L ${x2} ${y2}`}
-                      dur="1.5s"
-                      fill="freeze"
-                    />
-                  </circle>
-                </g>
-                
-                {/* Launch flash */}
-                <circle
-                  cx={x1}
-                  cy={y1}
-                  r="0"
-                  fill="#ff9999"
-                  opacity="0"
-                >
-                  <animate
-                    attributeName="r"
-                    values="0;8;0"
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;0.8;0"
-                    dur="0.3s"
-                    fill="freeze"
-                  />
-                </circle>
-                
-                {/* Impact explosion */}
+                {/* Explosion effect at target */}
                 <circle
                   cx={x2}
                   cy={y2}
                   r="3"
                   fill="#ff3333"
                   opacity="0"
-                  style={{
-                    filter: "drop-shadow(0 0 10px #ff0000)",
-                  }}
                 >
                   <animate
                     attributeName="r"
                     from="3"
-                    to="20"
-                    begin="1.5s"
+                    to="15"
+                    begin="0.3s"
                     dur="0.5s"
                     fill="freeze"
                   />
                   <animate
                     attributeName="opacity"
                     values="0;1;0"
-                    begin="1.5s"
+                    begin="0.3s"
                     dur="0.5s"
                     fill="freeze"
                   />
                 </circle>
-                
-                {/* Secondary explosion ring */}
-                <circle
-                  cx={x2}
-                  cy={y2}
-                  r="3"
-                  fill="none"
-                  stroke="#ff6666"
-                  strokeWidth="2"
-                  opacity="0"
-                >
-                  <animate
-                    attributeName="r"
-                    from="5"
-                    to="25"
-                    begin="1.5s"
-                    dur="0.6s"
-                    fill="freeze"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0;0.8;0"
-                    begin="1.5s"
-                    dur="0.6s"
-                    fill="freeze"
-                  />
-                </circle>
-                
-                {/* Debris particles */}
-                {[...Array(5)].map((_, i) => {
-                  const debrisAngle = (i * 72) * Math.PI / 180;
-                  const debrisX = x2 + Math.cos(debrisAngle) * 15;
-                  const debrisY = y2 + Math.sin(debrisAngle) * 15;
-                  
-                  return (
-                    <circle
-                      key={`debris-${i}`}
-                      cx={x2}
-                      cy={y2}
-                      r="1.5"
-                      fill="#ff9999"
-                      opacity="0"
-                    >
-                      <animate
-                        attributeName="cx"
-                        from={x2}
-                        to={debrisX}
-                        begin="1.5s"
-                        dur="0.4s"
-                        fill="freeze"
-                      />
-                      <animate
-                        attributeName="cy"
-                        from={y2}
-                        to={debrisY}
-                        begin="1.5s"
-                        dur="0.4s"
-                        fill="freeze"
-                      />
-                      <animate
-                        attributeName="opacity"
-                        values="0;1;0"
-                        begin="1.5s"
-                        dur="0.4s"
-                        fill="freeze"
-                      />
-                    </circle>
-                  );
-                })}
               </g>
             );
           })}
