@@ -658,8 +658,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           className="w-full h-full"
           style={{ maxHeight: '100%', maxWidth: '100%' }}
         >
-          {/* Subtle blue background with transparency */}
-          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="rgba(10, 32, 64, 0.2)" />
           
           {/* Subtle grid overlay and gradients */}
           <defs>
@@ -679,11 +677,86 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               <stop offset="0%" stopColor="#0088ff" stopOpacity="0.6" />
               <stop offset="100%" stopColor="#0044aa" stopOpacity="0.9" />
             </linearGradient>
+            <linearGradient id="radarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
+              <stop offset="100%" stopColor="#00ff00" stopOpacity="0.6" />
+            </linearGradient>
           </defs>
-          <rect x="0" y="0" width={viewBoxWidth} height={viewBoxHeight} fill="url(#grid)" />
           
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
+          
+          {/* Radar scanning effect around selected country */}
+          {selectedCountry && countryCentroids[selectedCountry] && (
+            <g>
+              {/* Radar circles */}
+              <circle
+                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
+                r="0"
+                fill="none"
+                stroke="#00ff00"
+                strokeWidth="2"
+                opacity="0.6"
+              >
+                <animate attributeName="r" from="0" to="150" dur="3s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.8;0" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle
+                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
+                r="0"
+                fill="none"
+                stroke="#00ff00"
+                strokeWidth="2"
+                opacity="0.6"
+              >
+                <animate attributeName="r" from="0" to="150" dur="3s" begin="1s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.8;0" dur="3s" begin="1s" repeatCount="indefinite" />
+              </circle>
+              <circle
+                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
+                r="0"
+                fill="none"
+                stroke="#00ff00"
+                strokeWidth="2"
+                opacity="0.6"
+              >
+                <animate attributeName="r" from="0" to="150" dur="3s" begin="2s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.8;0" dur="3s" begin="2s" repeatCount="indefinite" />
+              </circle>
+              
+              {/* Rotating radar sweep */}
+              <line
+                x1={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                y1={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
+                x2={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                y2={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1] - 150}
+                stroke="url(#radarGradient)"
+                strokeWidth="40"
+                opacity="0.4"
+              >
+                <animateTransform
+                  attributeName="transform"
+                  type="rotate"
+                  from={`0 ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]} ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}`}
+                  to={`360 ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]} ${projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}`}
+                  dur="4s"
+                  repeatCount="indefinite"
+                />
+              </line>
+              
+              {/* Center dot */}
+              <circle
+                cx={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[0]}
+                cy={projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight)[1]}
+                r="5"
+                fill="#00ff00"
+                opacity="0.9"
+              />
+            </g>
+          )}
           
           {/* Active attacks */}
           {activeAttacks.map((attack) => getAttackVisual(attack))}
@@ -750,22 +823,23 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* War intensity slider */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-96 bg-card/95 border-2 border-primary px-8 py-4 z-20 animate-scale-in">
-        <div className="flex items-center gap-4">
-          <p className="text-xs text-primary tracking-wider text-glow whitespace-nowrap">
-            WAR INTENSITY
-          </p>
+      {/* Radar sensitivity slider */}
+      <div className="absolute bottom-8 right-8 bg-card/95 border-2 border-[#00ff00] px-6 py-4 z-20 animate-scale-in">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#00ff00] animate-pulse" />
+            <p className="text-xs text-[#00ff00] tracking-wider font-mono">
+              RADAR SENSITIVITY
+            </p>
+            <span className="text-xs text-[#00ff00] font-mono ml-auto">{warIntensity[0]}%</span>
+          </div>
           <Slider
             value={warIntensity}
-            onValueChange={(value) => setWarIntensity(value)}
+            onValueChange={setWarIntensity}
             max={100}
             step={1}
-            className="flex-1"
+            className="w-48"
           />
-          <p className="text-xs text-primary tracking-wider text-glow w-12 text-right">
-            {warIntensity[0]}%
-          </p>
         </div>
       </div>
     </div>
