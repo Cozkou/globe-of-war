@@ -158,7 +158,7 @@ function CapitalMarker({ capital, radius }: { capital: Capital; radius: number }
   }, [capital, radius]);
 
   const labelPosition = useMemo(() => {
-    return latLngToVector3(capital.lat, capital.lng, radius + 0.1);
+    return latLngToVector3(capital.lat, capital.lng, radius + 0.08);
   }, [capital, radius]);
 
   return (
@@ -170,30 +170,15 @@ function CapitalMarker({ capital, radius }: { capital: Capital; radius: number }
       <Sphere args={[0.025, 16, 16]}>
         <meshBasicMaterial color="#00ccff" transparent opacity={0.7} />
       </Sphere>
-      {/* Text with glow effect - background glow layer */}
+      {/* Capital name label */}
       <Text
         position={[labelPosition.x - position.x, labelPosition.y - position.y, labelPosition.z - position.z]}
-        fontSize={0.05}
+        fontSize={0.04}
         color="#00ffff"
         anchorX="center"
         anchorY="middle"
-        outlineWidth={0.006}
-        outlineColor="#00ffff"
-        outlineOpacity={0.5}
-        outlineBlur={0.02}
-      >
-        {capital.name}
-      </Text>
-      {/* Main text layer */}
-      <Text
-        position={[labelPosition.x - position.x, labelPosition.y - position.y, labelPosition.z - position.z]}
-        fontSize={0.05}
-        color="#ffffff"
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.004}
+        outlineWidth={0.003}
         outlineColor="#000000"
-        font="https://fonts.gstatic.com/s/orbitron/v31/yMJMMIlzdpvBhQQL_SC3X9yhF25-T1nyGy6BoWgz.woff"
       >
         {capital.name}
       </Text>
