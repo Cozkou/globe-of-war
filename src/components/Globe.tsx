@@ -200,20 +200,20 @@ function EarthGlobe({
       {/* Globe sphere with dark blue ocean */}
       <Sphere ref={globeRef} args={[radius, 64, 64]}>
         <meshStandardMaterial
-          color="#020818"
-          roughness={0.7}
-          metalness={0.3}
-          emissive="#030d1a"
-          emissiveIntensity={0.4}
+          color="#000a14"
+          roughness={0.8}
+          metalness={0.2}
+          emissive="#00050a"
+          emissiveIntensity={0.3}
         />
       </Sphere>
       
       {/* Glow effect layer */}
       <Sphere args={[radius + 0.02, 64, 64]}>
         <meshBasicMaterial
-          color="#1a3a5c"
+          color="#001428"
           transparent
-          opacity={0.15}
+          opacity={0.2}
           side={THREE.BackSide}
         />
       </Sphere>
