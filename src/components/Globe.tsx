@@ -322,7 +322,7 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
         </div>
       )}
       
-      <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
         <color attach="background" args={['#000000']} />
         
         {/* Starfield background */}
