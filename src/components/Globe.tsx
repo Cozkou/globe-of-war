@@ -143,10 +143,10 @@ function CountryRegion({
       {/* Visible border line */}
       <Line
         points={points}
-        color={isHovered ? "#ff3333" : "#ff0000"}
+        color={isHovered ? "#ff6666" : "#ff3333"}
         lineWidth={isHovered ? 3 : 2}
         transparent
-        opacity={isHovered ? 1 : 0.9}
+        opacity={1}
       />
     </group>
   );
@@ -159,12 +159,12 @@ function CapitalMarker({ capital, radius }: { capital: Capital; radius: number }
 
   return (
     <group position={position}>
-      <Sphere args={[0.012, 16, 16]}>
-        <meshBasicMaterial color="#ffff00" />
+      <Sphere args={[0.015, 16, 16]}>
+        <meshBasicMaterial color="#ffff66" />
       </Sphere>
-      {/* Brighter glow */}
-      <Sphere args={[0.02, 16, 16]}>
-        <meshBasicMaterial color="#ffff00" transparent opacity={0.5} />
+      {/* Much brighter glow */}
+      <Sphere args={[0.025, 16, 16]}>
+        <meshBasicMaterial color="#ffff00" transparent opacity={0.7} />
       </Sphere>
     </group>
   );
@@ -197,23 +197,23 @@ function EarthGlobe({
 
   return (
     <group ref={groupRef}>
-      {/* Globe sphere with very dark ocean */}
+      {/* Globe sphere with much brighter ocean */}
       <Sphere ref={globeRef} args={[radius, 64, 64]}>
         <meshStandardMaterial
-          color="#001020"
-          roughness={0.8}
-          metalness={0.2}
-          emissive="#00050f"
-          emissiveIntensity={0.3}
+          color="#0a2040"
+          roughness={0.6}
+          metalness={0.3}
+          emissive="#051a35"
+          emissiveIntensity={0.6}
         />
       </Sphere>
       
-      {/* Subtle blue glow effect */}
+      {/* Brighter blue glow effect */}
       <Sphere args={[radius + 0.02, 64, 64]}>
         <meshBasicMaterial
-          color="#002040"
+          color="#1a4080"
           transparent
-          opacity={0.3}
+          opacity={0.4}
           side={THREE.BackSide}
         />
       </Sphere>
@@ -253,13 +253,13 @@ function EarthGlobe({
         return null;
       })}
       
-      {/* Subtle grid overlay */}
+      {/* Brighter grid overlay */}
       <Sphere args={[radius + 0.001, 32, 32]}>
         <meshBasicMaterial
-          color="#ff0000"
+          color="#ff3333"
           wireframe
           transparent
-          opacity={0.12}
+          opacity={0.15}
         />
       </Sphere>
 
@@ -325,10 +325,11 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
           speed={0.5}
         />
         
-        <ambientLight intensity={0.6} />
-        <pointLight position={[10, 10, 10]} intensity={2} color="#ff0000" />
-        <pointLight position={[-10, -10, -10]} intensity={1} color="#880000" />
-        <directionalLight position={[5, 5, 5]} intensity={1.2} color="#ff4444" />
+        <ambientLight intensity={0.9} />
+        <pointLight position={[10, 10, 10]} intensity={3} color="#ff0000" />
+        <pointLight position={[-10, -10, -10]} intensity={1.5} color="#ff3333" />
+        <pointLight position={[0, 10, 0]} intensity={2} color="#ffffff" />
+        <directionalLight position={[5, 5, 5]} intensity={1.8} color="#ff4444" />
         
         <EarthGlobe 
           countries={countries}
