@@ -331,6 +331,11 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
         <h2 className="text-lg md:text-xl text-primary tracking-[0.3em]">SELECT COUNTRY</h2>
       </div>
 
+      {/* Instruction text */}
+      <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 animate-fade-in">
+        <p className="text-[10px] text-muted-foreground/60 tracking-wider">DRAG TO ROTATE • SCROLL TO ZOOM</p>
+      </div>
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
           <p className="text-xs text-primary text-glow tracking-wider">LOADING WORLD MAP...</p>
