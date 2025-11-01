@@ -54,11 +54,10 @@ function SpinningGlobe() {
       {/* Title text on globe */}
       <Text
         position={[0, 0.3, 1.6]}
-        fontSize={0.25}
+        fontSize={0.22}
         color="#ff3333"
         anchorX="center"
         anchorY="middle"
-        font="/fonts/PressStart2P-Regular.ttf"
         letterSpacing={0.15}
       >
         SKYTRACK
@@ -67,7 +66,7 @@ function SpinningGlobe() {
       {/* Subtitle text on globe */}
       <Text
         position={[0, -0.1, 1.6]}
-        fontSize={0.08}
+        fontSize={0.07}
         color="#999999"
         anchorX="center"
         anchorY="middle"
@@ -75,7 +74,7 @@ function SpinningGlobe() {
         textAlign="center"
         letterSpacing={0.05}
       >
-        REAL-TIME GLOBAL AIRCRAFT TRACKING
+        REAL-TIME GLOBAL{'\n'}AIRCRAFT TRACKING
       </Text>
     </group>
   );
