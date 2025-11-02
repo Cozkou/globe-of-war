@@ -237,28 +237,26 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     return () => clearInterval(interval);
   }, [enemyCountries.length, chainConflicts.length, randomConflicts.length, visibleAircraft.length, sensitivity]);
 
-  // Track position trail for graph visualization
+  // Track position trail for graph visualization with mock data
   useEffect(() => {
-    const currentSens = sensitivity[0] * 10; // 0-1 scale
+    const currentSens = sensitivity[0];
 
-    // Calculate position on graph
-    let threats = 0;
-    if (currentSens < 0.2) {
-      threats = 0;
-    } else if (currentSens >= 0.3) {
-      threats = 2.5;
-    } else {
-      const normalized = (currentSens - 0.2) / 0.1;
-      threats = Math.pow(normalized, 3) * 2.5;
-    }
+    // Calculate position on graph with mock y values
+    // X-axis: sensitivity (0-1) scaled to 0-800
+    // Y-axis: random/mock data that generally trends upward with some randomness
+    const x = currentSens * 800;
 
-    const x = 80 + currentSens * 600;
-    const y = 200 - (threats * 180);
+    // Mock Y value: generally increases with sensitivity but has random spikes
+    // Base trend: increases from 0 to 500 as sensitivity goes from 0 to 1
+    const baseValue = currentSens * 500;
+    // Add randomness: ±30% variation
+    const randomVariation = (Math.random() - 0.5) * 150;
+    const y = Math.max(0, Math.min(600, baseValue + randomVariation));
 
     setPositionTrail(prev => {
       const newPoint = { x, y, sensitivity: currentSens, timestamp: Date.now() };
-      // Keep last 50 points
-      const updated = [...prev, newPoint].slice(-50);
+      // Keep last 200 points for better graph visualization
+      const updated = [...prev, newPoint].slice(-200);
       return updated;
     });
   }, [sensitivity]);
@@ -1562,30 +1560,26 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
 
                 {/* Threat Level Indicator */}
                 {(() => {
-                  const currentSens = sensitivity[0] * 10;
-                  let threats = 0;
+                  // Get current threat level from latest position trail point
+                  const currentPoint = positionTrail[positionTrail.length - 1];
+                  const threatY = currentPoint ? currentPoint.y : 0;
+                  
+                  // Normalize Y to 0-1 scale (0-600 range)
+                  const normalizedThreat = threatY / 600;
+                  
                   let actualThreats = visibleAircraft.length + enemyCountries.length + chainConflicts.length + randomConflicts.length;
 
-                  if (currentSens < 0.2) {
-                    threats = 0;
-                  } else if (currentSens >= 0.3) {
-                    threats = 2.5;
-                  } else {
-                    const normalized = (currentSens - 0.2) / 0.1;
-                    threats = Math.pow(normalized, 3) * 2.5;
-                  }
+                  const threatLevel = normalizedThreat === 0 ? "SAFE" :
+                                     normalizedThreat < 0.2 ? "LOW" :
+                                     normalizedThreat < 0.4 ? "MODERATE" :
+                                     normalizedThreat < 0.6 ? "HIGH" :
+                                     normalizedThreat < 0.8 ? "CRITICAL" : "MAXIMUM";
 
-                  const threatLevel = threats === 0 ? "SAFE" :
-                                     threats < 0.5 ? "LOW" :
-                                     threats < 1.0 ? "MODERATE" :
-                                     threats < 1.5 ? "HIGH" :
-                                     threats < 2.0 ? "CRITICAL" : "MAXIMUM";
-
-                  const threatColor = threats === 0 ? "#00ff00" :
-                                     threats < 0.5 ? "#88ff00" :
-                                     threats < 1.0 ? "#ffff00" :
-                                     threats < 1.5 ? "#ffaa00" :
-                                     threats < 2.0 ? "#ff6600" : "#ff0000";
+                  const threatColor = normalizedThreat === 0 ? "#00ff00" :
+                                     normalizedThreat < 0.2 ? "#88ff00" :
+                                     normalizedThreat < 0.4 ? "#ffff00" :
+                                     normalizedThreat < 0.6 ? "#ffaa00" :
+                                     normalizedThreat < 0.8 ? "#ff6600" : "#ff0000";
 
                   return (
                     <div className="absolute top-2 left-2 right-2 z-40 flex justify-between items-start">
@@ -1603,22 +1597,18 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
 
                 {/* Dynamic Background - Changes color based on threat level */}
                 {(() => {
-                  const currentSens = sensitivity[0] * 10;
-                  let threats = 0;
-                  if (currentSens < 0.2) {
-                    threats = 0;
-                  } else if (currentSens >= 0.3) {
-                    threats = 2.5;
-                  } else {
-                    const normalized = (currentSens - 0.2) / 0.1;
-                    threats = Math.pow(normalized, 3) * 2.5;
-                  }
+                  // Get current threat level from latest position trail point
+                  const currentPoint = positionTrail[positionTrail.length - 1];
+                  const threatY = currentPoint ? currentPoint.y : 0;
+                  
+                  // Normalize Y to 0-1 scale (0-600 range)
+                  const normalizedThreat = threatY / 600;
 
-                  const bgColor = threats === 0 ? "rgba(0, 50, 0, 0.3)" :
-                                 threats < 0.5 ? "rgba(50, 50, 0, 0.3)" :
-                                 threats < 1.0 ? "rgba(80, 40, 0, 0.3)" :
-                                 threats < 1.5 ? "rgba(100, 20, 0, 0.4)" :
-                                 threats < 2.0 ? "rgba(120, 0, 0, 0.5)" : "rgba(150, 0, 0, 0.6)";
+                  const bgColor = normalizedThreat === 0 ? "rgba(0, 50, 0, 0.3)" :
+                                 normalizedThreat < 0.2 ? "rgba(50, 50, 0, 0.3)" :
+                                 normalizedThreat < 0.4 ? "rgba(80, 40, 0, 0.3)" :
+                                 normalizedThreat < 0.6 ? "rgba(100, 20, 0, 0.4)" :
+                                 normalizedThreat < 0.8 ? "rgba(120, 0, 0, 0.5)" : "rgba(150, 0, 0, 0.6)";
 
                   return (
                     <div className="absolute inset-0 transition-colors duration-500"
@@ -1631,29 +1621,21 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                   className="w-full h-full relative z-10"
                   viewBox={(() => {
                     // Calculate current position to lock camera on the point
-                    const currentSens = sensitivity[0] * 10; // 0-1 scale
-
-                    // Calculate current threat level
-                    let currentThreats = 0;
-                    if (currentSens < 0.2) {
-                      currentThreats = 0;
-                    } else if (currentSens >= 0.3) {
-                      currentThreats = 2.5;
-                    } else {
-                      const normalized = (currentSens - 0.2) / 0.1;
-                      currentThreats = Math.pow(normalized, 3) * 2.5;
+                    const currentSens = sensitivity[0];
+                    
+                    // Get current point from positionTrail (latest point)
+                    const currentPoint = positionTrail[positionTrail.length - 1];
+                    
+                    if (!currentPoint) {
+                      // Fallback if no data yet
+                      return '0 0 800 600';
                     }
 
-                    // Point position in graph coordinates
-                    const pointX = 80 + currentSens * 600;
-                    const pointY = 200 - (currentThreats * 180);
-
-                    // Lock viewport to center on the point but show wider context
-                    // Show wider window so you can see the curve context
+                    // Lock viewport to center on the current point
                     const viewWidth = 500;
-                    const viewHeight = 300;
-                    const centerX = pointX - viewWidth / 2;
-                    const centerY = pointY - viewHeight / 2;
+                    const viewHeight = 400;
+                    const centerX = currentPoint.x - viewWidth / 2;
+                    const centerY = currentPoint.y - viewHeight / 2;
 
                     return `${centerX} ${centerY} ${viewWidth} ${viewHeight}`;
                   })()}
@@ -1679,25 +1661,23 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                     </filter>
                   </defs>
 
-                  {/* Background grid */}
-                  <line x1="80" y1="0" x2="80" y2="200" stroke="rgba(255,51,51,0.1)" strokeWidth="1" />
-                  <line x1="0" y1="200" x2="800" y2="200" stroke="rgba(255,51,51,0.2)" strokeWidth="2" />
-
-                  {/* Grid lines for reference - scrolling background */}
+                  {/* Background grid - dynamic based on current view */}
                   {(() => {
                     const lines = [];
-                    for (let i = 0; i <= 10; i++) {
+                    // Horizontal grid lines
+                    for (let i = -20; i <= 20; i++) {
                       const y = i * 50;
                       lines.push(
-                        <line key={`h${i}`} x1="0" y1={y} x2="800" y2={y}
+                        <line key={`h${i}`} x1="-1000" y1={y} x2="1000" y2={y}
                               stroke="rgba(255,51,51,0.1)" strokeWidth="1"
                               strokeDasharray="5,5" />
                       );
                     }
-                    for (let i = 0; i <= 16; i++) {
+                    // Vertical grid lines
+                    for (let i = -20; i <= 20; i++) {
                       const x = i * 50;
                       lines.push(
-                        <line key={`v${i}`} x1={x} y1="-200" x2={x} y2="400"
+                        <line key={`v${i}`} x1={x} y1="-1000" x2={x} y2="1000"
                               stroke="rgba(255,51,51,0.1)" strokeWidth="1"
                               strokeDasharray="5,5" />
                       );
@@ -1705,155 +1685,24 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                     return lines;
                   })()}
 
-                  {/* X-axis: Sensitivity scale - fixed at bottom */}
-                  <text x="80" y="220" fill="#888" fontSize="10" fontFamily="monospace">0%</text>
-                  <text x="280" y="220" fill="#00ff00" fontSize="10" fontFamily="monospace">20%</text>
-                  <text x="480" y="220" fill="#ffaa00" fontSize="11" fontFamily="monospace" fontWeight="bold">25%</text>
-                  <text x="680" y="220" fill="#ff0000" fontSize="12" fontFamily="monospace" fontWeight="bold">30%</text>
-                  <text x="350" y="245" fill="#999" fontSize="11" fontFamily="monospace">RADAR SENSITIVITY →</text>
-
-                  {/* Safe zone (0-20%) */}
-                  <rect x="80" y="0" width="200" height="200" fill="rgba(0,255,0,0.05)" />
-                  <text x="150" y="100" fill="rgba(0,255,0,0.5)" fontSize="14" fontFamily="monospace" fontWeight="bold">SAFE</text>
-                  <text x="140" y="115" fill="rgba(0,255,0,0.5)" fontSize="10" fontFamily="monospace">ZONE</text>
-
-                  {/* Danger zone (20-30%) with gradient fill */}
-                  <rect x="280" y="0" width="400" height="200" fill="url(#dangerZoneGradient)" />
-
-                  {/* Critical threshold markers */}
-                  <line x="280" y="0" x2="280" y2="200" stroke="#00ff00" strokeWidth="2" strokeDasharray="5,5" />
-                  <line x="680" y="0" x2="680" y2="200" stroke="#ff0000" strokeWidth="3" strokeDasharray="5,5" />
-
-                  {/* The exponential curve - animated, BREAKS THROUGH TOP */}
-                  <path
-                    d={(() => {
-                      // Generate exponential curve points that exceed bounds
-                      const points: string[] = [];
-                      for (let i = 0; i <= 100; i++) {
-                        const sensitivity = i / 100; // 0 to 1
-                        const x = 80 + sensitivity * 600; // Map to 80-680 pixels
-
-                        let threats;
-                        if (sensitivity < 0.2) {
-                          // Safe zone: minimal threats
-                          threats = 0;
-                        } else if (sensitivity >= 0.3) {
-                          // Instant chaos: EXCEEDS BOUNDS - goes to 2.5x the scale!
-                          threats = 2.5;
-                        } else {
-                          // Exponential growth in danger zone (0.2-0.3)
-                          const normalized = (sensitivity - 0.2) / 0.1;
-                          threats = Math.pow(normalized, 3) * 2.5; // Steeper exponential curve
-                        }
-
-                        const y = 200 - (threats * 180); // Invert Y axis - can go negative (above viewport)
-
-                        if (i === 0) {
-                          points.push(`M ${x} ${y}`);
-                        } else {
-                          points.push(`L ${x} ${y}`);
-                        }
-                      }
-                      return points.join(' ');
-                    })()}
-                    fill="none"
-                    stroke="#ff3333"
-                    strokeWidth="5"
-                    filter="url(#glowEffect)"
-                    opacity="0.7"
-                  />
-
-                  {/* Thicker background for curve visibility */}
-                  <path
-                    d={(() => {
-                      const points: string[] = [];
-                      for (let i = 0; i <= 100; i++) {
-                        const sensitivity = i / 100;
-                        const x = 80 + sensitivity * 600;
-
-                        let threats;
-                        if (sensitivity < 0.2) {
-                          threats = 0;
-                        } else if (sensitivity >= 0.3) {
-                          threats = 2.5;
-                        } else {
-                          const normalized = (sensitivity - 0.2) / 0.1;
-                          threats = Math.pow(normalized, 3) * 2.5;
-                        }
-
-                        const y = 200 - (threats * 180);
-
-                        if (i === 0) {
-                          points.push(`M ${x} ${y}`);
-                        } else {
-                          points.push(`L ${x} ${y}`);
-                        }
-                      }
-                      return points.join(' ');
-                    })()}
-                    fill="none"
-                    stroke="#ff0000"
-                    strokeWidth="10"
-                    opacity="0.2"
-                  />
-
-                  {/* Numeric labels on curve showing exact threat counts - BIGGER */}
+                  {/* Axes */}
+                  <line x1="-1000" y1="0" x2="1000" y2="0" stroke="rgba(255,51,51,0.3)" strokeWidth="2" />
+                  <line x1="0" y1="-1000" x2="0" y2="1000" stroke="rgba(255,51,51,0.3)" strokeWidth="2" />
+                  
+                  {/* Labels - positioned based on current view */}
                   {(() => {
-                    const labels: Array<{ sens: number; label: string; color: string }> = [
-                      { sens: 0.0, label: '0', color: '#00ff00' },
-                      { sens: 0.2, label: '0', color: '#00ff00' },
-                      { sens: 0.22, label: '7', color: '#88ff00' },
-                      { sens: 0.24, label: '31', color: '#ffff00' },
-                      { sens: 0.26, label: '82', color: '#ffaa00' },
-                      { sens: 0.28, label: '143', color: '#ff6600' },
-                      { sens: 0.30, label: '150+', color: '#ff0000' }
-                    ];
-
-                    return labels.map((item, idx) => {
-                      const x = 80 + item.sens * 600;
-                      let threats;
-                      if (item.sens < 0.2) {
-                        threats = 0;
-                      } else if (item.sens >= 0.3) {
-                        threats = 2.5;
-                      } else {
-                        const normalized = (item.sens - 0.2) / 0.1;
-                        threats = Math.pow(normalized, 3) * 2.5;
-                      }
-                      const y = 200 - (threats * 180);
-
-                      return (
-                        <g key={idx}>
-                          {/* Larger marker on curve */}
-                          <circle cx={x} cy={y} r="5" fill={item.color} opacity="0.6" />
-                          <circle cx={x} cy={y} r="8" fill="none" stroke={item.color} strokeWidth="2" opacity="0.4" />
-
-                          {/* Label background - BIGGER */}
-                          <rect
-                            x={x - 25}
-                            y={y - 35}
-                            width="50"
-                            height="24"
-                            fill="rgba(0,0,0,0.9)"
-                            stroke={item.color}
-                            strokeWidth="2"
-                            rx="4"
-                          />
-                          {/* Number - BIGGER */}
-                          <text
-                            x={x}
-                            y={y - 16}
-                            fill={item.color}
-                            fontSize="16"
-                            fontFamily="monospace"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                          >
-                            {item.label}
-                          </text>
-                        </g>
-                      );
-                    });
+                    const currentPoint = positionTrail[positionTrail.length - 1];
+                    if (!currentPoint) return null;
+                    
+                    const labelX = currentPoint.x - 240;
+                    const labelY = currentPoint.y + 50;
+                    
+                    return (
+                      <g>
+                        <text x={labelX} y={labelY} fill="#999" fontSize="14" fontFamily="monospace">RADAR SENSITIVITY →</text>
+                        <text x={labelX - 80} y={labelY - 200} fill="#999" fontSize="14" fontFamily="monospace" transform="rotate(-90, 0, 0)">THREAT LEVEL ↑</text>
+                      </g>
+                    );
                   })()}
 
                   {/* MOTION TRAIL - Shows path history */}
@@ -1955,125 +1804,45 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                     );
                   })()}
 
-                  {/* YOUR POSITION - Locked in center with crosshair */}
+                  {/* CURRENT POSITION - Locked in center with crosshair */}
                   {(() => {
-                    const currentSens = sensitivity[0] * 10;
-                    const x = 80 + currentSens * 600;
-
-                    let threats = 0;
-                    if (currentSens < 0.2) {
-                      threats = 0;
-                    } else if (currentSens >= 0.3) {
-                      threats = 2.5;
-                    } else {
-                      const normalized = (currentSens - 0.2) / 0.1;
-                      threats = Math.pow(normalized, 3) * 2.5;
-                    }
-                    const y = 200 - (threats * 180);
+                    const currentPoint = positionTrail[positionTrail.length - 1];
+                    if (!currentPoint) return null;
 
                     return (
                       <>
                         {/* Larger crosshair targeting reticle */}
-                        <circle cx={x} cy={y} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
+                        <circle cx={currentPoint.x} cy={currentPoint.y} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
                           <animate attributeName="r" values="40;50;40" dur="2s" repeatCount="indefinite" />
                           <animate attributeName="opacity" values="0.6;0.3;0.6" dur="2s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={x} cy={y} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
+                        <circle cx={currentPoint.x} cy={currentPoint.y} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
 
-                        {/* Crosshair lines - BIGGER */}
-                        <line x1={x - 55} y1={y} x2={x - 28} y2={y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={x + 55} y1={y} x2={x + 28} y2={y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={x} y1={y - 55} x2={x} y2={y - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={x} y1={y + 55} x2={x} y2={y + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        {/* Crosshair lines */}
+                        <line x1={currentPoint.x - 55} y1={currentPoint.y} x2={currentPoint.x - 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentPoint.x + 55} y1={currentPoint.y} x2={currentPoint.x + 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentPoint.x} y1={currentPoint.y - 55} x2={currentPoint.x} y2={currentPoint.y - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentPoint.x} y1={currentPoint.y + 55} x2={currentPoint.x} y2={currentPoint.y + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
 
-                        {/* Central point - BIGGER pulsing */}
-                        <circle cx={x} cy={y} r="12" fill="#ffff00" opacity="0.9">
+                        {/* Central point - pulsing */}
+                        <circle cx={currentPoint.x} cy={currentPoint.y} r="12" fill="#ffff00" opacity="0.9">
                           <animate attributeName="r" values="12;18;12" dur="1s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={x} cy={y} r="6" fill="#ffffff" />
+                        <circle cx={currentPoint.x} cy={currentPoint.y} r="6" fill="#ffffff" />
 
-                        {/* Climb rate indicator - shows if going up */}
-                        {threats > 0.1 && (
-                          <>
-                            <polygon
-                              points={`${x},${y - 70} ${x - 10},${y - 55} ${x + 10},${y - 55}`}
-                              fill="#ff0000"
-                              opacity="0.8"
-                            >
-                              <animate attributeName="opacity" values="0.8;0.3;0.8" dur="0.6s" repeatCount="indefinite" />
-                            </polygon>
-                            <text x={x} y={y - 80} fill="#ff0000" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-                              CLIMBING
-                            </text>
-                          </>
-                        )}
-
-                        {/* Altitude/Threat indicator bar next to point - BIGGER */}
-                        <rect x={x + 60} y={y - 60} width="12" height="120" fill="rgba(0,0,0,0.8)" stroke="#00ffff" strokeWidth="2" />
-                        <rect
-                          x={x + 60}
-                          y={y + 60 - (threats / 2.5 * 120)}
-                          width="12"
-                          height={threats / 2.5 * 120}
-                          fill={threats < 0.5 ? "#00ff00" : threats < 1.5 ? "#ffff00" : "#ff0000"}
-                        />
-                        {/* Threat level text */}
-                        <text x={x + 80} y={y} fill="#00ffff" fontSize="14" fontFamily="monospace" fontWeight="bold">
-                          {Math.floor((threats / 2.5) * 100)}%
+                        {/* Position info label */}
+                        <text 
+                          x={currentPoint.x + 80} 
+                          y={currentPoint.y} 
+                          fill="#00ffff" 
+                          fontSize="16" 
+                          fontFamily="monospace" 
+                          fontWeight="bold"
+                        >
+                          X: {(currentPoint.x).toFixed(0)} | Y: {(currentPoint.y).toFixed(0)}
                         </text>
                       </>
                     );
-                  })()}
-
-                  {/* Reference markers in scrolling background */}
-                  {(() => {
-                    const currentSens = sensitivity[0] * 10;
-                    const markers = [];
-
-                    // Show reference points along the path
-                    for (let i = 0; i <= 10; i++) {
-                      const sens = i / 10;
-                      const x = 80 + sens * 600;
-                      let threats = 0;
-
-                      if (sens < 0.2) {
-                        threats = 0;
-                      } else if (sens >= 0.3) {
-                        threats = 2.5;
-                      } else {
-                        const normalized = (sens - 0.2) / 0.1;
-                        threats = Math.pow(normalized, 3) * 2.5;
-                      }
-                      const y = 200 - (threats * 180);
-
-                      // Only show markers we've passed or are near
-                      if (sens <= currentSens + 0.1) {
-                        const isPassed = sens < currentSens;
-                        markers.push(
-                          <g key={i}>
-                            <circle
-                              cx={x}
-                              cy={y}
-                              r="3"
-                              fill={isPassed ? "#666" : "#00ff00"}
-                              opacity={isPassed ? 0.3 : 0.6}
-                            />
-                            <text
-                              x={x}
-                              y={y + 15}
-                              fill={isPassed ? "#666" : "#00ff00"}
-                              fontSize="8"
-                              fontFamily="monospace"
-                              textAnchor="middle"
-                              opacity={isPassed ? 0.3 : 0.6}
-                            >
-                              {(sens * 100).toFixed(0)}%
-                            </text>
-                          </g>
-                        );
-                      }
-                    }
-                    return markers;
                   })()}
 
                   {/* Arrow marker */}
@@ -2115,39 +1884,6 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 </div>
               </div>
 
-              {/* Dramatic warning text with exact numbers */}
-              <div className="mt-4 space-y-3">
-                <div className="text-center bg-red-950/30 border border-red-500/50 p-3 rounded">
-                  <p className="text-xs text-red-400 font-bold tracking-wide mb-2">
-                    📊 EXPONENTIAL ESCALATION ANALYSIS
-                  </p>
-                  <div className="space-y-1 text-left text-[10px] font-mono">
-                    <div className="flex justify-between border-b border-red-500/20 pb-1">
-                      <span className="text-muted-foreground">20% → 22% (+2%)</span>
-                      <span className="text-orange-400 font-bold">0 → 7 conflicts (+700%)</span>
-                    </div>
-                    <div className="flex justify-between border-b border-red-500/20 pb-1">
-                      <span className="text-muted-foreground">22% → 24% (+2%)</span>
-                      <span className="text-orange-400 font-bold">7 → 31 conflicts (+343%)</span>
-                    </div>
-                    <div className="flex justify-between border-b border-red-500/20 pb-1">
-                      <span className="text-muted-foreground">24% → 26% (+2%)</span>
-                      <span className="text-red-400 font-bold">31 → 82 conflicts (+165%)</span>
-                    </div>
-                    <div className="flex justify-between border-b border-red-500/20 pb-1">
-                      <span className="text-muted-foreground">26% → 28% (+2%)</span>
-                      <span className="text-red-400 font-bold">82 → 143 conflicts (+74%)</span>
-                    </div>
-                    <div className="flex justify-between pt-1">
-                      <span className="text-red-300 font-bold">28% → 30% (+2%)</span>
-                      <span className="text-red-500 font-bold animate-pulse">143 → 150+ TOTAL CHAOS</span>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-center text-[10px] text-orange-300 italic">
-                  The curve physically breaks through containment, symbolizing uncontrollable escalation beyond all safety limits
-                </p>
-              </div>
             </div>
 
             {/* Conflict Escalation Timeline */}
