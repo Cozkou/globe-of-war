@@ -69,7 +69,7 @@ const Index = () => {
           <MapView2D selectedCountry={selectedCountry} onGameOver={handleGameOver} />
         </div>
       ) : (
-        <div className={selectedCountry ? "animate-fade-out" : "animate-fade-in"} key="globe">
+        <div className={selectedCountry ? "animate-fade-out" : "animate-[fade-in_0.8s_ease-out]"} key="globe">
           {/* Only render Globe when not transitioning to map view */}
           {!showMapView && (
             <Globe onCountrySelect={handleCountrySelect} />

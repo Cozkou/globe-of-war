@@ -130,15 +130,31 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
   const handleStart = () => {
     setIsAnimating(true);
+    // Wait for animations to complete before transitioning
     setTimeout(() => {
       onStart();
-    }, 1000);
+    }, 1500);
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-background via-background to-background">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#000000]">
+      {/* Starry background - same as Globe page */}
+      <div className="absolute inset-0 pointer-events-none">
+        <Canvas camera={{ position: [0, 0, 1], fov: 75 }}>
+          <color attach="background" args={['#000000']} />
+          <Stars 
+            radius={100} 
+            depth={50} 
+            count={5000} 
+            factor={4} 
+            saturation={0} 
+            fade 
+            speed={0.5}
+          />
+        </Canvas>
+      </div>
       {/* Animated grid background */}
-      <div className="absolute inset-0 pointer-events-none opacity-20">
+      <div className={`absolute inset-0 pointer-events-none opacity-20 transition-opacity duration-1000 ${isAnimating ? 'opacity-0' : 'opacity-20'}`}>
         <div className="absolute inset-0" style={{
           backgroundImage: `
             linear-gradient(rgba(255, 51, 51, 0.1) 1px, transparent 1px),
@@ -150,7 +166,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       </div>
 
       {/* Floating particles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className={`absolute inset-0 pointer-events-none overflow-hidden transition-opacity duration-1000 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -166,7 +182,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       </div>
 
       {/* Radar sweep effect */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-10">
+      <div className={`absolute inset-0 pointer-events-none overflow-hidden opacity-10 transition-opacity duration-1000 ${isAnimating ? 'opacity-0' : 'opacity-10'}`}>
         <div className="absolute top-1/2 left-1/2 w-[800px] h-[800px] -translate-x-1/2 -translate-y-1/2">
           <div className="absolute inset-0 rounded-full border border-primary" />
           <div className="absolute inset-0 rounded-full border border-primary" style={{ transform: 'scale(0.7)' }} />
@@ -184,8 +200,8 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* 3D Spinning Globe at bottom */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-1000 ${isAnimating ? '-translate-y-[200vh]' : ''}`}
-        style={{ height: '100vh', transform: 'translateY(50%)' }}
+        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[50vh]'}`}
+        style={{ height: '100vh' }}
       >
         <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
           <color attach="background" args={['transparent']} />
@@ -211,13 +227,13 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       </div>
       
       {/* CRT scanlines effect */}
-      <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
+      <div className={`absolute inset-0 pointer-events-none opacity-5 crt-effect transition-opacity duration-1000 ${isAnimating ? 'opacity-0' : 'opacity-5'}`}
         style={{
           backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 0, 0.15) 2px, rgba(255, 0, 0, 0.15) 4px)'
         }}
       />
       
-      <div className={`flex flex-col items-center gap-8 relative z-20 ${isAnimating ? 'fly-up' : ''}`}>
+      <div className={`flex flex-col items-center gap-8 relative z-20 transition-all duration-1000 ${isAnimating ? 'opacity-0 -translate-y-[100vh]' : 'opacity-100 translate-y-0'}`}>
         <div className="space-y-6 text-center">
           <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary leading-tight px-4 tracking-[0.3em]">
             SKYTRACK
@@ -319,12 +335,12 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider z-10">
+      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider z-30 transition-all duration-1000 ${isAnimating ? 'opacity-0 -translate-y-20' : 'opacity-100 translate-y-0'}`}>
         WLDN x Builder's Brew | HackTheBurgh 2025 ©
       </div>
 
       {/* Red glow at bottom - positioned above globe */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/10 to-transparent pointer-events-none z-5" />
+      <div className={`absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/10 to-transparent pointer-events-none z-5 transition-opacity duration-1000 ${isAnimating ? 'opacity-0' : 'opacity-100'}`} />
     </div>
   );
 }
