@@ -203,7 +203,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
       if (onGameOver) {
         onGameOver();
       }
-    }, 4000);
+    }, 6000);
   }, [isExploding, onGameOver]);
 
   // Generate fake error messages when sensitivity > 0.75
@@ -512,12 +512,12 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           ))}
           
           {/* GAME OVER text */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto z-50" style={{
-            animation: 'gameOverFade 4s ease-out forwards',
+          <div className="absolute inset-0 flex items-center justify-center z-50" style={{
+            animation: 'gameOverFade 6s ease-out forwards',
             animationDelay: '1.5s',
             opacity: 0
           }}>
-            <h1 className="text-8xl md:text-9xl font-bold text-red-600 tracking-[0.5em]" style={{
+            <h1 className="text-8xl md:text-9xl font-bold text-red-600 tracking-[0.5em] text-center" style={{
               textShadow: '0 0 40px rgba(255, 0, 0, 1), 0 0 80px rgba(255, 0, 0, 0.8)',
               animation: 'gameOverPulse 1s ease-in-out infinite',
               animationDelay: '2.5s'
@@ -590,9 +590,9 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               
               @keyframes gameOverFade {
                 0% { opacity: 0; transform: scale(0.5); }
-                20% { opacity: 1; transform: scale(1.2); }
-                40% { opacity: 1; transform: scale(1); }
-                85% { opacity: 1; transform: scale(1); }
+                15% { opacity: 1; transform: scale(1.2); }
+                25% { opacity: 1; transform: scale(1); }
+                90% { opacity: 1; transform: scale(1); }
                 100% { opacity: 0; transform: scale(0.8); }
               }
               
