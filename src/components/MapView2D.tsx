@@ -51,7 +51,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   const [enemyCountries, setEnemyCountries] = useState<string[]>([]);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
   const [isAircraftLoading, setIsAircraftLoading] = useState(false);
-  const [sensitivity, setSensitivity] = useState([0]); // Slider value 0-1
+  const [sensitivity, setSensitivity] = useState([0.02]); // Slider value 0-0.1, starts at 0.02
   const [showConflicts, setShowConflicts] = useState(false);
   const [visibleConflictCount, setVisibleConflictCount] = useState(0);
   const [randomConflicts, setRandomConflicts] = useState<Array<[string, string]>>([]);
@@ -69,16 +69,22 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   // Filter aircraft based on sensitivity - show more "dangerous" planes as sensitivity increases
   const visibleAircraft = useMemo(() => {
     const sensitivityValue = sensitivity[0];
-    
-    // At 0 sensitivity, show no planes
-    if (sensitivityValue === 0) {
+
+    // Below 0.02 sensitivity, show no planes
+    if (sensitivityValue < 0.02) {
       return [];
     }
-    
-    // Calculate how many aircraft to show based on sensitivity (0-100%)
+
+    // Above 0.03, show all planes (instant chaos)
+    if (sensitivityValue >= 0.03) {
+      return aircraft;
+    }
+
+    // Between 0.02 and 0.03, scale smoothly
     const totalAircraft = aircraft.length;
-    const visibleCount = Math.ceil(totalAircraft * sensitivityValue);
-    
+    const normalizedValue = (sensitivityValue - 0.02) / 0.01; // 0.02-0.03 maps to 0-1
+    const visibleCount = Math.ceil(totalAircraft * normalizedValue);
+
     // Return a subset of aircraft (first N aircraft)
     return aircraft.slice(0, visibleCount);
   }, [aircraft, sensitivity]);
@@ -233,7 +239,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   // Update conflicts when sensitivity changes
   useEffect(() => {
     const intensityValue = sensitivity[0];
-    if (intensityValue < 0.01) {
+    if (intensityValue < 0.02) {
       setShowConflicts(false);
       setVisibleConflictCount(0);
       setErrorMessages([]);
@@ -269,8 +275,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     if (!timerStarted || isExploding) return;
 
     // Calculate countdown speed: higher sensitivity = faster countdown
-    // At 0 sensitivity: 1x speed, at max (1.0) sensitivity: 50x speed
-    const speedMultiplier = 1 + (sensitivity[0] * 49);
+    // Below 0.02: 1x speed, between 0.02-0.03: scale smoothly to 50x, above 0.03: 50x speed
+    let speedMultiplier;
+    if (sensitivity[0] < 0.02) {
+      speedMultiplier = 1;
+    } else if (sensitivity[0] >= 0.03) {
+      speedMultiplier = 50;
+    } else {
+      const normalizedValue = (sensitivity[0] - 0.02) / 0.01;
+      speedMultiplier = 1 + (normalizedValue * 49);
+    }
     const intervalTime = 1000 / speedMultiplier;
 
     const timer = setInterval(() => {
@@ -331,9 +345,9 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     return () => clearInterval(interval);
   }, [showThreatsDashboard, isExploding]);
 
-  // Generate fake error messages when sensitivity > 0.75
+  // Generate fake error messages when sensitivity >= 0.03 (instant chaos)
   useEffect(() => {
-    if (sensitivity[0] > 0.75) {
+    if (sensitivity[0] >= 0.03) {
       const errorInterval = setInterval(() => {
         const fakeErrors = [
           "CRITICAL: RADIATION DETECTED",
@@ -365,11 +379,21 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     }
   }, [sensitivity]);
 
-  // Map sensitivity to war level - extremely responsive to small changes
+  // Map sensitivity to war level - compressed to 0.02-0.03 range, smooth scaling
   useEffect(() => {
-    // Exponential scaling: 0.1 = level 1, 0.2 = level 2, 0.4 = level 3, 0.6 = level 4, 0.8+ = level 5
-    const exponentialScale = Math.pow(sensitivity[0], 0.5) * 7;
-    const level = Math.min(5, Math.max(1, Math.ceil(exponentialScale)));
+    const sensitivityValue = sensitivity[0];
+    let level;
+
+    if (sensitivityValue < 0.02) {
+      level = 1;
+    } else if (sensitivityValue >= 0.03) {
+      level = 5; // Instant chaos
+    } else {
+      // Scale 0.02-0.03 to levels 1-5 smoothly
+      const normalizedValue = (sensitivityValue - 0.02) / 0.01;
+      level = Math.min(5, Math.max(1, Math.floor(1 + normalizedValue * 4)));
+    }
+
     setWarLevel(level);
   }, [sensitivity]);
 
@@ -384,16 +408,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     const totalAvailable = availableCountries.length;
     const sensitivityValue = sensitivity[0];
     
-    // For selected country targets: scale moderately
+    // For selected country targets: scale smoothly between 0.02-0.03
     let numEnemies;
-    if (sensitivityValue >= 0.99) {
-      numEnemies = Math.min(20, totalAvailable); // Cap at 20 for selected country
-    } else if (sensitivityValue < 0.01) {
-      numEnemies = 0;
+    if (sensitivityValue < 0.02) {
+      numEnemies = 0; // Nothing happens below 0.02
+    } else if (sensitivityValue >= 0.03) {
+      numEnemies = Math.min(20, totalAvailable); // Instant chaos at 0.03
     } else {
-      // Less dramatic scaling for selected country
-      const scale = Math.pow(sensitivityValue, 0.5);
-      numEnemies = Math.ceil(scale * 20);
+      // Scale smoothly between 0.02 and 0.03
+      const normalizedValue = (sensitivityValue - 0.02) / 0.01;
+      numEnemies = Math.ceil(normalizedValue * Math.min(20, totalAvailable));
     }
     
     const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
@@ -411,13 +435,20 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     });
     setChainConflicts(chainPairs);
     
-    // Random country-to-country conflicts: scale dramatically
+    // Random country-to-country conflicts: scale smoothly between 0.02-0.03
     const randomPairs: Array<[string, string]> = [];
-    
-    if (sensitivityValue > 0.2) {
-      // Exponential scaling: 0.3 = 5 conflicts, 0.5 = 20, 0.7 = 50, 1.0 = 100+
-      const randomConflictScale = Math.pow((sensitivityValue - 0.2) / 0.8, 0.4);
-      const numRandomConflicts = Math.floor(randomConflictScale * 120);
+
+    if (sensitivityValue >= 0.02) {
+      let numRandomConflicts;
+
+      if (sensitivityValue >= 0.03) {
+        // Instant chaos - maximum conflicts
+        numRandomConflicts = 150;
+      } else {
+        // Scale smoothly between 0.02 and 0.03
+        const normalizedValue = (sensitivityValue - 0.02) / 0.01;
+        numRandomConflicts = Math.floor(normalizedValue * 150);
+      }
       
       for (let i = 0; i < numRandomConflicts && i < 150; i++) { // Cap at 150 for performance
         const country1 = availableCountries[Math.floor(Math.random() * availableCountries.length)];
@@ -737,8 +768,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           style={{ 
             maxHeight: '100%', 
             maxWidth: '100%',
-            animation: sensitivity[0] > 0.75
-              ? `mapShake ${Math.max(0.2, 1 - (visibleConflictCount / 200))}s infinite` 
+            animation: sensitivity[0] >= 0.03
+              ? `mapShake ${Math.max(0.2, 1 - (visibleConflictCount / 200))}s infinite`
               : 'none',
             transform: isExploding ? 'scale(1.5)' : 'scale(1)',
             opacity: isExploding ? 0 : 1,
@@ -914,8 +945,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 )}
                 
                 
-                {/* Level 5: Counter-attack missiles from enemy - now shows at high sensitivity */}
-                {sensitivity[0] >= 0.5 && (
+                {/* Level 5: Counter-attack missiles from enemy - shows at or above 0.028 */}
+                {sensitivity[0] >= 0.028 && (
                   <>
                     <defs>
                       <path
@@ -1460,12 +1491,12 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                         stroke="#ff3333"
                         strokeWidth="8"
                         strokeDasharray={`${2 * Math.PI * 56}`}
-                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - sensitivity[0])}`}
+                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - sensitivity[0] * 10)}`}
                         strokeLinecap="round"
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-3xl font-bold text-primary">{(sensitivity[0] * 100).toFixed(0)}%</p>
+                      <p className="text-3xl font-bold text-primary">{(sensitivity[0] * 1000).toFixed(0)}%</p>
                       <p className="text-[10px] text-muted-foreground">SENSITIVITY</p>
                     </div>
                   </div>
@@ -1478,14 +1509,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                   <div>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-muted-foreground">Threat Detection</span>
-                      <span className={sensitivity[0] > 0.7 ? "text-red-400" : sensitivity[0] > 0.4 ? "text-yellow-400" : "text-green-400"}>
-                        {sensitivity[0] > 0.7 ? "CRITICAL" : sensitivity[0] > 0.4 ? "ELEVATED" : "MINIMAL"}
+                      <span className={sensitivity[0] >= 0.03 ? "text-red-400" : sensitivity[0] >= 0.025 ? "text-yellow-400" : "text-green-400"}>
+                        {sensitivity[0] >= 0.03 ? "CRITICAL" : sensitivity[0] >= 0.025 ? "ELEVATED" : "MINIMAL"}
                       </span>
                     </div>
                     <div className="w-full bg-background h-2">
-                      <div 
-                        className={`h-full ${sensitivity[0] > 0.7 ? "bg-red-500" : sensitivity[0] > 0.4 ? "bg-yellow-500" : "bg-green-500"}`}
-                        style={{ width: `${sensitivity[0] * 100}%` }}
+                      <div
+                        className={`h-full ${sensitivity[0] >= 0.03 ? "bg-red-500" : sensitivity[0] >= 0.025 ? "bg-yellow-500" : "bg-green-500"}`}
+                        style={{ width: `${sensitivity[0] * 1000}%` }}
                       />
                     </div>
                   </div>
@@ -1549,14 +1580,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 <h3 className="text-sm text-primary tracking-wider text-glow">SITUATION ANALYSIS</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Current sensitivity settings have triggered <span className="text-red-500 font-bold">{enemyCountries.length + chainConflicts.length + randomConflicts.length}</span> active conflicts.
-                  {sensitivity[0] > 0.7 && " CRITICAL: Global warfare imminent. Immediate de-escalation required."}
-                  {sensitivity[0] > 0.4 && sensitivity[0] <= 0.7 && " WARNING: Conflicts spreading rapidly through chain reactions."}
-                  {sensitivity[0] <= 0.4 && sensitivity[0] > 0 && " ALERT: Regional tensions detected. Monitor situation closely."}
-                  {sensitivity[0] === 0 && " STATUS: All systems nominal. No active conflicts detected."}
+                  {sensitivity[0] >= 0.03 && " CRITICAL: Global warfare imminent. Total chaos achieved."}
+                  {sensitivity[0] >= 0.025 && sensitivity[0] < 0.03 && " WARNING: Conflicts spreading rapidly through chain reactions."}
+                  {sensitivity[0] >= 0.02 && sensitivity[0] < 0.025 && " ALERT: Regional tensions detected. Monitor situation closely."}
+                  {sensitivity[0] < 0.02 && " STATUS: All systems nominal. No active conflicts detected."}
                 </p>
                 <div className="pt-4 border-t border-primary/20">
                   <p className="text-[10px] text-muted-foreground italic">
-                    "{sensitivity[0] > 0.5 ? "The smallest spark can ignite the greatest inferno." : "Peace is maintained by constant vigilance."}"
+                    "{sensitivity[0] >= 0.025 ? "The smallest spark can ignite the greatest inferno." : "Peace is maintained by constant vigilance."}"
                   </p>
                 </div>
               </div>
@@ -1683,9 +1714,10 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 Use the <span className="text-orange-400 font-bold">SENSITIVITY SLIDER</span> to control your radar detection level:
               </p>
               <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
-                <li><span className="text-green-400">Low sensitivity (0-33%)</span>: Few threats detected, lower conflict risk</li>
-                <li><span className="text-yellow-400">Medium sensitivity (34-66%)</span>: More threats visible, moderate escalation</li>
-                <li><span className="text-red-400">High sensitivity (67-100%)</span>: Maximum detection, extreme danger of global war</li>
+                <li><span className="text-green-400">Below 20%</span>: Safe zone - no threats detected</li>
+                <li><span className="text-yellow-400">20-25%</span>: Danger zone begins - conflicts start emerging</li>
+                <li><span className="text-orange-400">25-30%</span>: Rapid escalation - chain reactions multiplying</li>
+                <li><span className="text-red-400">30% and above</span>: INSTANT CHAOS - total global warfare</li>
               </ul>
             </div>
 
@@ -1772,11 +1804,11 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           </div>
           <div className="flex flex-col items-center gap-1 pt-1">
             <span className="text-[10px] text-muted-foreground tracking-wide text-center">THREAT LEVEL</span>
-            <span 
+            <span
               className="text-sm font-mono font-bold"
-              style={{ color: `hsl(${120 - sensitivity[0] * 120}, 100%, 50%)` }}
+              style={{ color: `hsl(${120 - sensitivity[0] * 1200}, 100%, 50%)` }}
             >
-              {(sensitivity[0] * 100).toFixed(0)}%
+              {(sensitivity[0] * 1000).toFixed(0)}%
             </span>
           </div>
           <div className="flex flex-col items-center gap-1 pt-1">
@@ -1824,7 +1856,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-scale-in bg-card/95 border-2 border-primary px-8 py-6 rounded-lg">
         <div className="space-y-4">
           <p className="text-xs tracking-widest font-bold text-center" style={{
-            color: `hsl(${120 - sensitivity[0] * 120}, 100%, 50%)`
+            color: `hsl(${120 - sensitivity[0] * 1200}, 100%, 50%)`
           }}>
             RADAR SENSITIVITY
           </p>
@@ -1832,14 +1864,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             <Slider
               value={sensitivity}
               onValueChange={setSensitivity}
-              max={1}
-              step={0.05}
+              max={0.1}
+              step={0.001}
               className="cursor-pointer"
             />
           </div>
           <div className="flex justify-between items-center text-xs gap-4">
             <p className="text-muted-foreground font-mono">
-              {sensitivity[0].toFixed(2)}
+              {sensitivity[0].toFixed(3)}
             </p>
             <p className="text-orange-400 font-mono text-[10px]">
               {visibleAircraft.length} THREATS
