@@ -61,6 +61,84 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   const [timerStarted, setTimerStarted] = useState(false);
   const [isExploding, setIsExploding] = useState(false);
   const [explosionRays, setExplosionRays] = useState<Array<{ angle: number; id: number }>>([]);
+  const [showThreatsDashboard, setShowThreatsDashboard] = useState(false);
+
+  // Filter aircraft based on sensitivity - show more "dangerous" planes as sensitivity increases
+  const visibleAircraft = useMemo(() => {
+    const sensitivityValue = sensitivity[0];
+    
+    // At 0 sensitivity, show no planes
+    if (sensitivityValue === 0) {
+      return [];
+    }
+    
+    // Calculate how many aircraft to show based on sensitivity (0-100%)
+    const totalAircraft = aircraft.length;
+    const visibleCount = Math.ceil(totalAircraft * sensitivityValue);
+    
+    // Return a subset of aircraft (first N aircraft)
+    return aircraft.slice(0, visibleCount);
+  }, [aircraft, sensitivity]);
+
+  // Calculate threat statistics
+  const threatStats = useMemo(() => {
+    const stats = {
+      total: visibleAircraft.length,
+      inFlight: visibleAircraft.filter(a => a.onGround === false).length,
+      onGround: visibleAircraft.filter(a => a.onGround === true).length,
+      byCountry: {} as { [key: string]: number },
+      avgAltitude: 0,
+      avgSpeed: 0,
+      altitudeRanges: {
+        low: 0,      // < 3000m
+        medium: 0,   // 3000-10000m
+        high: 0      // > 10000m
+      },
+      speedRanges: {
+        slow: 0,     // < 100 m/s
+        medium: 0,   // 100-250 m/s
+        fast: 0      // > 250 m/s
+      }
+    };
+
+    if (visibleAircraft.length === 0) return stats;
+
+    let totalAltitude = 0;
+    let totalSpeed = 0;
+    let altitudeCount = 0;
+    let speedCount = 0;
+
+    visibleAircraft.forEach(aircraft => {
+      // Count by country
+      const country = aircraft.originCountry || 'Unknown';
+      stats.byCountry[country] = (stats.byCountry[country] || 0) + 1;
+
+      // Altitude stats
+      if (aircraft.barometricAltitude !== null) {
+        totalAltitude += aircraft.barometricAltitude;
+        altitudeCount++;
+
+        if (aircraft.barometricAltitude < 3000) stats.altitudeRanges.low++;
+        else if (aircraft.barometricAltitude < 10000) stats.altitudeRanges.medium++;
+        else stats.altitudeRanges.high++;
+      }
+
+      // Speed stats
+      if (aircraft.velocity !== null) {
+        totalSpeed += aircraft.velocity;
+        speedCount++;
+
+        if (aircraft.velocity < 100) stats.speedRanges.slow++;
+        else if (aircraft.velocity < 250) stats.speedRanges.medium++;
+        else stats.speedRanges.fast++;
+      }
+    });
+
+    stats.avgAltitude = altitudeCount > 0 ? totalAltitude / altitudeCount : 0;
+    stats.avgSpeed = speedCount > 0 ? totalSpeed / speedCount : 0;
+
+    return stats;
+  }, [visibleAircraft]);
 
   // Load country data
   useEffect(() => {
@@ -442,7 +520,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     <div className="relative w-full h-screen bg-background overflow-hidden">
       {/* Timer display */}
       {timerStarted && (
-        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-30">
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-30">
           <div
             className="font-mono text-6xl font-bold tracking-wider animate-pulse"
             style={{
@@ -518,9 +596,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             opacity: 0
           }}>
             <h1 className="text-8xl md:text-9xl font-bold text-red-600 tracking-[0.5em] text-center" style={{
-              textShadow: '0 0 40px rgba(255, 0, 0, 1), 0 0 80px rgba(255, 0, 0, 0.8)',
-              animation: 'gameOverPulse 1s ease-in-out infinite',
-              animationDelay: '2.5s'
+              textShadow: '0 0 40px rgba(255, 0, 0, 1), 0 0 80px rgba(255, 0, 0, 0.8)'
             }}>
               GAME OVER
             </h1>
@@ -594,17 +670,6 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 25% { opacity: 1; transform: scale(1); }
                 90% { opacity: 1; transform: scale(1); }
                 100% { opacity: 0; transform: scale(0.8); }
-              }
-              
-              @keyframes gameOverPulse {
-                0%, 100% { 
-                  filter: brightness(1);
-                  transform: scale(1);
-                }
-                50% { 
-                  filter: brightness(1.5);
-                  transform: scale(1.05);
-                }
               }
             `}
           </style>
@@ -1094,8 +1159,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             );
           })}
           
-          {/* Aircraft positions with minimal styling */}
-          {aircraft.map((plane) => {
+          {/* Aircraft positions with minimal styling - only show based on sensitivity */}
+          {visibleAircraft.map((plane) => {
             if (plane.latitude === null || plane.longitude === null) return null;
             
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
@@ -1123,9 +1188,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
       </div>
 
 
+      {/* Title at the top */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 animate-fade-in">
+        <h2 className="text-lg md:text-xl text-primary tracking-[0.3em]">SKYTRACK COMMAND</h2>
+      </div>
+
       {/* Country indicator in top-right corner */}
       <div className="absolute top-4 right-4 bg-card/95 border-2 border-primary px-6 py-3 flex items-center gap-2 z-20 animate-scale-in">
-        <p className="text-xs text-primary tracking-wider text-glow">
+        <p className="text-xs text-primary tracking-wider" style={{
+          textShadow: '0 0 5px rgba(255, 0, 0, 0.5)'
+        }}>
           NATION: {selectedCountry.toUpperCase()}
         </p>
       </div>
@@ -1153,11 +1225,185 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               <strong>WARNING:</strong> This is a chaos theory simulation. Small adjustments to the sensitivity slider create exponentially catastrophic outcomes.
             </p>
             <p>
-              The timer represents global stability. As you increase sensitivity, conflicts escalate rapidly and the countdown accelerates. The slightest change can trigger worldwide devastation.
+              As radar sensitivity increases, more hostile aircraft are detected as threats. Each detected threat triggers defensive responses, which cascade into conflicts. The timer represents global stability - it accelerates as threats multiply.
             </p>
             <p className="text-xs text-primary tracking-wider text-glow mt-4">
               ONE ADJUSTMENT. TOTAL ANNIHILATION.
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Threats Dashboard */}
+      <Dialog open={showThreatsDashboard} onOpenChange={setShowThreatsDashboard}>
+        <DialogContent className="bg-card/95 border-2 border-primary max-w-4xl backdrop-blur-sm max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-primary tracking-wider text-glow text-lg">THREAT DETECTION DASHBOARD</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Real-time analysis of {threatStats.total} detected hostile aircraft
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 mt-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-background/50 border border-primary/30 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">TOTAL THREATS</p>
+                <p className="text-2xl font-bold text-orange-400">{threatStats.total}</p>
+              </div>
+              <div className="bg-background/50 border border-primary/30 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">IN FLIGHT</p>
+                <p className="text-2xl font-bold text-red-500">{threatStats.inFlight}</p>
+              </div>
+              <div className="bg-background/50 border border-primary/30 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">ON GROUND</p>
+                <p className="text-2xl font-bold text-yellow-500">{threatStats.onGround}</p>
+              </div>
+              <div className="bg-background/50 border border-primary/30 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">AVG ALTITUDE</p>
+                <p className="text-2xl font-bold text-blue-400">{Math.round(threatStats.avgAltitude)}m</p>
+              </div>
+            </div>
+
+            {/* Altitude Distribution */}
+            <div className="bg-background/50 border border-primary/30 p-4">
+              <h3 className="text-xs text-primary tracking-wider mb-3">ALTITUDE DISTRIBUTION</h3>
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">LOW (&lt; 3,000m)</span>
+                    <span className="text-orange-400">{threatStats.altitudeRanges.low}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 to-orange-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.low / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">MEDIUM (3,000-10,000m)</span>
+                    <span className="text-yellow-400">{threatStats.altitudeRanges.medium}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-600 to-yellow-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.medium / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">HIGH (&gt; 10,000m)</span>
+                    <span className="text-red-400">{threatStats.altitudeRanges.high}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-red-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.high / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Speed Distribution */}
+            <div className="bg-background/50 border border-primary/30 p-4">
+              <h3 className="text-xs text-primary tracking-wider mb-3">VELOCITY DISTRIBUTION</h3>
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">SLOW (&lt; 360 km/h)</span>
+                    <span className="text-blue-400">{threatStats.speedRanges.slow}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-blue-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.slow / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">MEDIUM (360-900 km/h)</span>
+                    <span className="text-yellow-400">{threatStats.speedRanges.medium}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-600 to-yellow-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.medium / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">FAST (&gt; 900 km/h)</span>
+                    <span className="text-red-400">{threatStats.speedRanges.fast}</span>
+                  </div>
+                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-red-400"
+                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.fast / threatStats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Origin Countries */}
+            <div className="bg-background/50 border border-primary/30 p-4">
+              <h3 className="text-xs text-primary tracking-wider mb-3">THREATS BY ORIGIN COUNTRY</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {Object.entries(threatStats.byCountry)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                  .map(([country, count]) => (
+                    <div key={country}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">{country}</span>
+                        <span className="text-orange-400">{count}</span>
+                      </div>
+                      <div className="w-full bg-background h-3 relative overflow-hidden">
+                        <div 
+                          className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 to-orange-400"
+                          style={{ width: `${threatStats.total > 0 ? (count / threatStats.total) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* All Aircraft List */}
+            <div className="bg-background/50 border border-primary/30 p-4">
+              <h3 className="text-xs text-primary tracking-wider mb-3">ALL DETECTED THREATS</h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {visibleAircraft.map((aircraft, idx) => (
+                  <div 
+                    key={aircraft.icao24}
+                    className="border border-primary/20 p-3 hover:border-primary/50 transition-colors cursor-pointer"
+                    onClick={() => {
+                      setSelectedAircraft(aircraft);
+                      setShowThreatsDashboard(false);
+                    }}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-mono text-orange-400">#{idx + 1} - {aircraft.icao24}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {aircraft.callsign || 'Unknown'} • {aircraft.originCountry || 'Unknown'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-primary">{aircraft.barometricAltitude ? `${Math.round(aircraft.barometricAltitude)}m` : 'N/A'}</p>
+                        <p className="text-[10px] text-muted-foreground">{aircraft.velocity ? `${Math.round(aircraft.velocity * 3.6)} km/h` : 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1290,11 +1536,18 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               className="cursor-pointer"
             />
           </div>
-          <div className="flex justify-between items-center text-xs">
+          <div className="flex justify-between items-center text-xs gap-4">
             <p className="text-muted-foreground font-mono">
               {sensitivity[0].toFixed(2)}
             </p>
-            <p className="text-primary font-mono">
+            <button
+              onClick={() => setShowThreatsDashboard(true)}
+              className="text-orange-400 font-mono text-[10px] hover:text-orange-300 hover:underline cursor-pointer transition-colors"
+              disabled={visibleAircraft.length === 0}
+            >
+              {visibleAircraft.length} THREATS
+            </button>
+            <p className="text-primary font-mono text-[10px]">
               {enemyCountries.length + chainConflicts.length + randomConflicts.length} {(enemyCountries.length + chainConflicts.length + randomConflicts.length) === 1 ? 'CONFLICT' : 'CONFLICTS'}
             </p>
           </div>

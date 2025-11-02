@@ -189,11 +189,13 @@ function CapitalMarker({ capital, radius }: { capital: Capital; radius: number }
 function EarthGlobe({ 
   countries, 
   onCountryHover, 
-  onCountrySelect 
+  onCountrySelect,
+  selectedCountry
 }: { 
   countries: GeoJSONFeature[];
   onCountryHover: (name: string | null) => void;
   onCountrySelect: (name: string) => void;
+  selectedCountry: string | null;
 }) {
   const globeRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -210,6 +212,67 @@ function EarthGlobe({
     setHovered(name);
     onCountryHover(name);
   };
+
+  // Calculate centroid of selected country's main landmass
+  const selectedCountryPosition = useMemo(() => {
+    if (!selectedCountry) return null;
+    
+    const country = countries.find(c => c.properties.name === selectedCountry);
+    if (!country) return null;
+
+    let mainCoords: number[][] = [];
+    const { geometry } = country;
+
+    if (geometry.type === 'Polygon') {
+      // For Polygon, use the exterior ring (first ring)
+      mainCoords = geometry.coordinates[0] as number[][];
+    } else if (geometry.type === 'MultiPolygon') {
+      // For MultiPolygon, find the largest polygon (main landmass)
+      const polygons = geometry.coordinates as number[][][][];
+      let largestPolygon: number[][] = [];
+      let maxArea = 0;
+
+      polygons.forEach(polygon => {
+        const coords = polygon[0] as number[][];
+        // Approximate area by counting coordinate points
+        const area = coords.length;
+        if (area > maxArea) {
+          maxArea = area;
+          largestPolygon = coords;
+        }
+      });
+
+      mainCoords = largestPolygon;
+    }
+
+    if (mainCoords.length === 0) return null;
+
+    // Calculate centroid using the polygon centroid formula
+    let centroidLat = 0;
+    let centroidLng = 0;
+    let signedArea = 0;
+
+    for (let i = 0; i < mainCoords.length - 1; i++) {
+      const [x0, y0] = mainCoords[i];
+      const [x1, y1] = mainCoords[i + 1];
+      const a = x0 * y1 - x1 * y0;
+      signedArea += a;
+      centroidLng += (x0 + x1) * a;
+      centroidLat += (y0 + y1) * a;
+    }
+
+    signedArea *= 0.5;
+    centroidLng /= (6.0 * signedArea);
+    centroidLat /= (6.0 * signedArea);
+
+    // Fallback to simple average if centroid calculation fails
+    if (isNaN(centroidLat) || isNaN(centroidLng) || !isFinite(centroidLat) || !isFinite(centroidLng)) {
+      centroidLng = mainCoords.reduce((sum, coord) => sum + coord[0], 0) / mainCoords.length;
+      centroidLat = mainCoords.reduce((sum, coord) => sum + coord[1], 0) / mainCoords.length;
+    }
+
+    return latLngToVector3(centroidLat, centroidLng, radius + 0.05);
+  }, [selectedCountry, countries, radius]);
 
   return (
     <group ref={groupRef}>
@@ -278,6 +341,26 @@ function EarthGlobe({
           opacity={0.15}
         />
       </Sphere>
+
+      {/* Red pin marker for selected country */}
+      {selectedCountryPosition && (
+        <group position={selectedCountryPosition}>
+          {/* Pin base (circle) */}
+          <Sphere args={[0.02, 16, 16]}>
+            <meshBasicMaterial color="#ff0000" />
+          </Sphere>
+          
+          {/* Pin glow */}
+          <Sphere args={[0.035, 16, 16]}>
+            <meshBasicMaterial color="#ff0000" transparent opacity={0.5} />
+          </Sphere>
+          
+          {/* Pulsing outer glow */}
+          <Sphere args={[0.05, 16, 16]}>
+            <meshBasicMaterial color="#ff3333" transparent opacity={0.3} />
+          </Sphere>
+        </group>
+      )}
     </group>
   );
 }
@@ -296,6 +379,14 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
   const handleConfirmSelection = () => {
     if (selectedCountry) {
       onCountrySelect(selectedCountry);
+    }
+  };
+
+  const handleRandomSelection = () => {
+    if (countries.length > 0) {
+      const randomIndex = Math.floor(Math.random() * countries.length);
+      const randomCountry = countries[randomIndex].properties.name;
+      setSelectedCountry(randomCountry);
     }
   };
 
@@ -336,6 +427,19 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
         <p className="text-[10px] text-muted-foreground/60 tracking-wider">DRAG TO ROTATE • SCROLL TO ZOOM</p>
       </div>
 
+      {/* Random selection button */}
+      {!selectedCountry && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 animate-fade-in">
+          <Button
+            onClick={handleRandomSelection}
+            variant="outline"
+            className="bg-card/90 border-2 border-primary/50 hover:border-primary hover:bg-primary/10 px-6 py-3 text-xs tracking-wider"
+          >
+            CAN'T PICK? SELECT RANDOM
+          </Button>
+        </div>
+      )}
+
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
           <p className="text-xs text-primary text-glow tracking-wider">LOADING WORLD MAP...</p>
@@ -365,7 +469,8 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
         <EarthGlobe 
           countries={countries}
           onCountryHover={setHoveredCountry} 
-          onCountrySelect={handleCountryClick} 
+          onCountrySelect={handleCountryClick}
+          selectedCountry={selectedCountry}
         />
         
         <OrbitControls
@@ -392,7 +497,7 @@ export default function Globe({ onCountrySelect }: { onCountrySelect: (name: str
       
       {selectedCountry && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 z-20 animate-scale-in">
-          <div className="bg-card/95 border-2 border-primary px-6 py-2 animate-pulse">
+          <div className="bg-card/95 border-2 border-primary px-6 py-2">
             <p className="text-xs text-primary text-glow tracking-wider">
               SELECTED: {selectedCountry}
             </p>
