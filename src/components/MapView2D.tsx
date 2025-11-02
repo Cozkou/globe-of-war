@@ -124,14 +124,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   // Update conflicts when sensitivity changes
   useEffect(() => {
     const intensityValue = sensitivity[0];
-    if (intensityValue === 0) {
+    if (intensityValue < 0.01) {
       setShowConflicts(false);
       setVisibleConflictCount(0);
       return;
     }
     
     setShowConflicts(true);
-    const numConflicts = Math.min(5, Math.max(1, Math.ceil(intensityValue * 5)));
+    // More sensitive mapping: even 0.2 sensitivity can show multiple conflicts
+    const numConflicts = Math.min(5, Math.max(1, Math.ceil(intensityValue * 10)));
     setVisibleConflictCount(0);
     
     // Gradually show conflicts
@@ -147,9 +148,11 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return () => clearInterval(interval);
   }, [sensitivity]);
 
-  // Map sensitivity to war level (1-5)
+  // Map sensitivity to war level (1-5) - more responsive to small changes
   useEffect(() => {
-    const level = Math.min(5, Math.max(1, Math.ceil(sensitivity[0] * 5)));
+    // Scale exponentially for more dramatic effect at lower values
+    const scaledValue = Math.pow(sensitivity[0], 0.7) * 5;
+    const level = Math.min(5, Math.max(1, Math.ceil(scaledValue)));
     setWarLevel(level);
   }, [sensitivity]);
 
@@ -789,7 +792,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             />
           </div>
           <p className="text-xs text-center text-muted-foreground font-mono">
-            {(sensitivity[0] * 100).toFixed(0)}%
+            {sensitivity[0].toFixed(2)}
           </p>
         </div>
       </div>
