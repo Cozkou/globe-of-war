@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
-
+import { Slider } from './ui/slider';
 import { HelpCircle, Plane } from 'lucide-react';
 import { feature } from 'topojson-client';
 import { calculateBoundingBox, buildAircraftApiUrl } from '@/lib/country-bounds';
@@ -50,10 +50,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [enemyCountries, setEnemyCountries] = useState<string[]>([]);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
   const [isAircraftLoading, setIsAircraftLoading] = useState(false);
-  const [warIntensity, setWarIntensity] = useState(0); // 0-10 cycling value
-  const [isHolding, setIsHolding] = useState(false);
-  const [intensityDirection, setIntensityDirection] = useState(1); // 1 for up, -1 for down
-  const [releasedIntensity, setReleasedIntensity] = useState(0); // Captured intensity on release
+  const [sensitivity, setSensitivity] = useState([0]); // Slider value 0-1
   const [showConflicts, setShowConflicts] = useState(false);
   const [visibleConflictCount, setVisibleConflictCount] = useState(0);
 
@@ -124,64 +121,37 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
   }, [selectedCountry, countries]);
 
-  // Update war intensity while holding
+  // Update conflicts when sensitivity changes
   useEffect(() => {
-    if (!isHolding) return;
-    
-    let animationFrame: number;
-    
-    const updateIntensity = () => {
-      setWarIntensity(prev => {
-        let next = prev + intensityDirection * 0.1; // Increase/decrease by 0.1
-        
-        // Reverse direction at boundaries
-        if (next >= 10) {
-          next = 10;
-          setIntensityDirection(-1);
-        } else if (next <= 0) {
-          next = 0;
-          setIntensityDirection(1);
-        }
-        
-        return next;
-      });
-      
-      animationFrame = requestAnimationFrame(updateIntensity);
-    };
-    
-    animationFrame = requestAnimationFrame(updateIntensity);
-    
-    return () => cancelAnimationFrame(animationFrame);
-  }, [isHolding, intensityDirection]);
-
-  // Handle button release
-  const handleRelease = () => {
-    setIsHolding(false);
-    setReleasedIntensity(warIntensity);
-    setShowConflicts(true);
-    setVisibleConflictCount(0); // Reset visible conflicts
-  };
-
-  // Gradually show conflicts after release
-  useEffect(() => {
-    if (!showConflicts) return;
-    
-    const numConflicts = Math.min(5, Math.max(1, Math.ceil(releasedIntensity / 2)));
-    
-    if (visibleConflictCount < numConflicts) {
-      const timer = setTimeout(() => {
-        setVisibleConflictCount(prev => prev + 1);
-      }, 300); // 300ms delay between each line appearing
-      
-      return () => clearTimeout(timer);
+    const intensityValue = sensitivity[0];
+    if (intensityValue === 0) {
+      setShowConflicts(false);
+      setVisibleConflictCount(0);
+      return;
     }
-  }, [showConflicts, visibleConflictCount, releasedIntensity]);
+    
+    setShowConflicts(true);
+    const numConflicts = Math.min(5, Math.max(1, Math.ceil(intensityValue * 5)));
+    setVisibleConflictCount(0);
+    
+    // Gradually show conflicts
+    let count = 0;
+    const interval = setInterval(() => {
+      count++;
+      setVisibleConflictCount(count);
+      if (count >= numConflicts) {
+        clearInterval(interval);
+      }
+    }, 300);
+    
+    return () => clearInterval(interval);
+  }, [sensitivity]);
 
-  // Map intensity to war level (1-5)
+  // Map sensitivity to war level (1-5)
   useEffect(() => {
-    const level = Math.min(5, Math.max(1, Math.ceil(releasedIntensity / 2)));
+    const level = Math.min(5, Math.max(1, Math.ceil(sensitivity[0] * 5)));
     setWarLevel(level);
-  }, [releasedIntensity]);
+  }, [sensitivity]);
 
   // Select random enemy countries based on war level
   useEffect(() => {
@@ -801,25 +771,27 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* War Intensity Hold Button - Bottom Center */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-scale-in">
-        <Button
-          onMouseDown={() => setIsHolding(true)}
-          onMouseUp={handleRelease}
-          onMouseLeave={handleRelease}
-          onTouchStart={() => setIsHolding(true)}
-          onTouchEnd={handleRelease}
-          className="px-12 py-6 text-sm font-bold tracking-widest border-4 transition-all select-none"
-          style={{
-            backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)`,
-            borderColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 40%)`,
-            color: warIntensity > 5 ? '#ffffff' : '#000000',
-            boxShadow: `0 0 ${20 + warIntensity * 4}px hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%, 0.8)`,
-            transform: isHolding ? 'scale(1.05)' : 'scale(1)',
-          }}
-        >
-          RADAR SENSITIVITY
-        </Button>
+      {/* Radar Sensitivity Slider - Bottom Center */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-scale-in bg-card/95 border-2 border-primary px-8 py-6 rounded-lg">
+        <div className="space-y-4">
+          <p className="text-xs tracking-widest font-bold text-center" style={{
+            color: `hsl(${120 - sensitivity[0] * 120}, 100%, 50%)`
+          }}>
+            RADAR SENSITIVITY
+          </p>
+          <div className="w-64">
+            <Slider
+              value={sensitivity}
+              onValueChange={setSensitivity}
+              max={1}
+              step={0.01}
+              className="cursor-pointer"
+            />
+          </div>
+          <p className="text-xs text-center text-muted-foreground font-mono">
+            {(sensitivity[0] * 100).toFixed(0)}%
+          </p>
+        </div>
       </div>
     </div>
   );
