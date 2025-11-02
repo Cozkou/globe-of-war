@@ -41,6 +41,149 @@ interface Aircraft {
   squawk: string | null;
   spi: boolean | null;
   positionSource: number | null;
+  threatLevel?: number; // Calculated threat score (0.02 - 0.03)
+  threatScore?: number; // Raw threat score (0 - 100 scale)
+  threatBreakdown?: ThreatBreakdown;
+}
+
+interface ThreatBreakdown {
+  altitude: number;
+  velocity: number;
+  verticalRate: number;
+  transponder: number;
+  origin: number;
+  groundStatus: number;
+  anomaly: number;
+}
+
+interface ThreatProfile {
+  level: number;
+  score: number;
+  breakdown: ThreatBreakdown;
+}
+
+const SENSITIVITY_MIN = 0.02;
+const SENSITIVITY_MAX = 0.03;
+const SENSITIVITY_CONTROL_MAX = 0.1;
+const MIN_SENSITIVITY_FOR_VISIBILITY = 0.01;
+
+/**
+ * Maximum positive contributions from each factor sum to 100 to keep the scale intuitive.
+ * Values beyond this threshold are clamped.
+ */
+const MAX_THREAT_SCORE = 100;
+
+/**
+ * Convert a raw threat score (0-100) to the legacy 0.02-0.03 sensitivity range with easing.
+ */
+function mapScoreToThreatLevel(score: number): number {
+  const clamped = Math.max(0, Math.min(score, MAX_THREAT_SCORE));
+  const normalized = clamped / MAX_THREAT_SCORE;
+  // Use square root (power 0.5) to spread out the distribution more aggressively
+  // This makes medium-threat aircraft appear in yellow/orange instead of all being green
+  const eased = Math.pow(normalized, 0.5);
+  return SENSITIVITY_MIN + eased * (SENSITIVITY_MAX - SENSITIVITY_MIN);
+}
+
+/**
+ * Convert a slider value (0-0.1) to a threat-score threshold.
+ * Higher sensitivity lowers the required score so more aircraft appear.
+ */
+function mapSensitivityToScoreThreshold(value: number): number {
+  const clamped = Math.max(0, Math.min(value, SENSITIVITY_CONTROL_MAX));
+  const normalized = clamped / SENSITIVITY_CONTROL_MAX;
+  const eased = 1 - Math.pow(1 - normalized, 2); // ramp up quickly as sensitivity increases
+  const threshold = MAX_THREAT_SCORE * (1 - 0.85 * eased);
+  return Math.max(10, Math.min(MAX_THREAT_SCORE, threshold));
+}
+
+/**
+ * Calculate a detailed threat profile for an aircraft.
+ * The raw score is on a 0-100 scale; level keeps compatibility with legacy UI expectations.
+ */
+function calculateThreatProfile(aircraft: Aircraft, selectedCountry: string): ThreatProfile {
+  const altitude = aircraft.barometricAltitude ?? aircraft.geometricAltitude;
+  let altitudeScore: number;
+
+  if (altitude === null) {
+    altitudeScore = 20;
+  } else if (altitude < 500) {
+    altitudeScore = 35;
+  } else if (altitude < 1500) {
+    altitudeScore = 30;
+  } else if (altitude < 3000) {
+    altitudeScore = 25;
+  } else if (altitude < 6000) {
+    altitudeScore = 18;
+  } else if (altitude < 10000) {
+    altitudeScore = 12;
+  } else {
+    altitudeScore = 8;
+  }
+
+  const velocity = Math.abs(aircraft.velocity ?? 0);
+  let velocityScore: number;
+  if (velocity === 0) {
+    velocityScore = 12;
+  } else if (velocity > 320) {
+    velocityScore = 25;
+  } else if (velocity > 240) {
+    velocityScore = 18;
+  } else if (velocity < 70) {
+    velocityScore = 15;
+  } else if (velocity < 110) {
+    velocityScore = 12;
+  } else {
+    velocityScore = 8;
+  }
+
+  const verticalRate = Math.abs(aircraft.verticalRate ?? 0);
+  let verticalRateScore: number;
+  if (verticalRate > 20) {
+    verticalRateScore = 15;
+  } else if (verticalRate > 12) {
+    verticalRateScore = 11;
+  } else if (verticalRate > 6) {
+    verticalRateScore = 7;
+  } else if (verticalRate > 3) {
+    verticalRateScore = 4;
+  } else {
+    verticalRateScore = 2;
+  }
+
+  const squawk = aircraft.squawk?.trim();
+  let transponderScore: number;
+  if (squawk === '7500') {
+    transponderScore = 25;
+  } else if (squawk === '7600' || squawk === '7700') {
+    transponderScore = 20;
+  } else if (!squawk) {
+    transponderScore = 8;
+  } else {
+    transponderScore = 4;
+  }
+
+  const originScore = aircraft.originCountry && aircraft.originCountry !== selectedCountry ? 15 : 5;
+  const groundStatusScore = aircraft.onGround ? -12 : 0;
+  const anomalyScore = !aircraft.callsign || aircraft.callsign.trim() === '' ? 6 : 0;
+
+  const rawScore = altitudeScore + velocityScore + verticalRateScore + transponderScore + originScore + groundStatusScore + anomalyScore;
+  const clampedScore = Math.max(0, Math.min(rawScore, MAX_THREAT_SCORE));
+  const threatLevel = mapScoreToThreatLevel(clampedScore);
+
+  return {
+    level: threatLevel,
+    score: clampedScore,
+    breakdown: {
+      altitude: altitudeScore,
+      velocity: velocityScore,
+      verticalRate: verticalRateScore,
+      transponder: transponderScore,
+      origin: originScore,
+      groundStatus: groundStatusScore,
+      anomaly: anomalyScore
+    }
+  };
 }
 
 export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProps) {
@@ -67,7 +210,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   const [showTutorial, setShowTutorial] = useState(true);
   const [positionTrail, setPositionTrail] = useState<Array<{ x: number; y: number; sensitivity: number; timestamp: number }>>([]);
 
-  // Filter aircraft based on sensitivity - show more "dangerous" planes as sensitivity increases
+  // Filter aircraft based on THREAT LEVEL - only show planes whose threat level is within sensitivity
   const visibleAircraft = useMemo(() => {
     const sensitivityValue = sensitivity[0];
 
@@ -81,13 +224,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
       return aircraft;
     }
 
-    // Between 0.02 and 0.03, scale smoothly
-    const totalAircraft = aircraft.length;
-    const normalizedValue = (sensitivityValue - 0.02) / 0.01; // 0.02-0.03 maps to 0-1
-    const visibleCount = Math.ceil(totalAircraft * normalizedValue);
+    // Filter aircraft whose threat level is <= current sensitivity
+    // This means: higher sensitivity shows more potential threats
+    // Lower sensitivity only shows the most dangerous aircraft
+    const threatsDetected = aircraft.filter(a => {
+      const threatLevel = a.threatLevel || 0.02;
+      return threatLevel <= sensitivityValue;
+    });
 
-    // Return a subset of aircraft (first N aircraft)
-    return aircraft.slice(0, visibleCount);
+    // Sort by threat level (highest threats first)
+    return threatsDetected.sort((a, b) => (b.threatLevel || 0) - (a.threatLevel || 0));
   }, [aircraft, sensitivity]);
 
   // Calculate threat statistics
@@ -194,11 +340,34 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
         .then((data: { success: boolean; data: Aircraft[]; count: number; error?: string }) => {
           setIsAircraftLoading(false);
           if (data.success && data.data) {
-            // Filter out aircraft without valid coordinates
-            const validAircraft = data.data.filter(
-              a => a.latitude !== null && a.longitude !== null
-            );
+            // Filter out aircraft without valid coordinates and calculate threat scores
+            const aircraftWithScores = data.data
+              .filter(a => a.latitude !== null && a.longitude !== null)
+              .map(aircraft => {
+                const profile = calculateThreatProfile(aircraft, selectedCountry);
+                return {
+                  ...aircraft,
+                  threatScore: profile.score,
+                  threatBreakdown: profile.breakdown
+                };
+              });
+
+            // Sort by threat score to get ranking
+            const sortedAircraft = [...aircraftWithScores].sort((a, b) => a.threatScore! - b.threatScore!);
+
+            // Redistribute threat levels evenly across 0.021-0.03 based on percentile
+            const validAircraft = sortedAircraft.map((aircraft, index) => {
+              const percentile = sortedAircraft.length > 1 ? index / (sortedAircraft.length - 1) : 0.5;
+              const threatLevel = 0.021 + (percentile * 0.009); // Spread evenly from 0.021 to 0.03
+              return {
+                ...aircraft,
+                threatLevel
+              };
+            });
+
             console.log(`Loaded ${validAircraft.length} valid aircraft for ${selectedCountry}`);
+            console.log(`Threat levels distributed evenly from 0.021 to 0.030 based on threat score ranking`);
+
             setAircraft(validAircraft);
           } else {
             console.error('Failed to load aircraft:', data.error || 'Unknown error');
@@ -1359,10 +1528,28 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             </g>
           )}
           
-          {/* Aircraft positions - RENDER LAST SO PLANES ARE ON TOP OF RADAR */}
+          {/* Aircraft positions - COLOR CODED BY THREAT LEVEL */}
           {visibleAircraft.map((plane) => {
             if (plane.latitude === null || plane.longitude === null) return null;
-            
+
+            // Get threat level and calculate color
+            const threatLevel = plane.threatLevel || 0.02;
+            const threatIntensity = (threatLevel - 0.02) / 0.01; // 0-1 scale
+
+            // Color gradient: green (low threat) -> yellow -> orange -> red (high threat)
+            let planeColor;
+            if (threatIntensity < 0.25) {
+              planeColor = '#00ff00'; // Green
+            } else if (threatIntensity < 0.5) {
+              planeColor = '#ffff00'; // Yellow
+            } else if (threatIntensity < 0.75) {
+              planeColor = '#ff8800'; // Orange
+            } else {
+              planeColor = '#ff0000'; // Red
+            }
+
+            const pulseSize = 2 + (threatIntensity * 4); // Higher threat = larger pulse
+
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
             
             // Calculate rotation to point toward country centroid
@@ -1389,20 +1576,20 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             const moveY = 0; // No lateral movement
             
             return (
-              <g 
-                key={plane.icao24} 
+              <g
+                key={plane.icao24}
                 transform={`translate(${x}, ${y})`}
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedAircraft(plane)}
                 className="aircraft-icon"
               >
-                {/* Pulsing glow effect */}
-                <circle cx="0" cy="0" r="6" fill="#ff3333" opacity={0.2}>
+                {/* Pulsing glow effect - color coded by threat level */}
+                <circle cx="0" cy="0" r="6" fill={planeColor} opacity={0.2}>
                   <animate attributeName="r" values="4;8;4" dur="2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
                 </circle>
                 {/* Base circle */}
-                <circle cx="0" cy="0" r="3" fill="#ff3333" opacity={0.7} />
+                <circle cx="0" cy="0" r="3" fill={planeColor} opacity={0.7} />
                 {/* Plane icon rotated to face country and animated to move forward */}
                 <g transform={`rotate(${rotation})`}>
                   <g>
@@ -1414,22 +1601,36 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       repeatCount="indefinite"
                     />
                     <foreignObject x="-10" y="-10" width="20" height="20">
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
                         justifyContent: 'center',
-                        filter: 'drop-shadow(0 0 4px rgba(255, 51, 51, 0.8))'
+                        filter: `drop-shadow(0 0 4px ${planeColor})`
                       }}>
-                        <Plane 
-                          size={12} 
-                          color="#ffffff" 
-                          fill="#ff3333"
+                        <Plane
+                          size={12}
+                          color="#ffffff"
+                          fill={planeColor}
                           strokeWidth={2}
                         />
                       </div>
                     </foreignObject>
                   </g>
                 </g>
+
+                {/* Threat level indicator above plane */}
+                <text
+                  x="0"
+                  y="-18"
+                  fontSize="6"
+                  fill={planeColor}
+                  textAnchor="middle"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                  opacity="0.8"
+                >
+                  {(threatLevel * 1000).toFixed(0)}
+                </text>
               </g>
             );
           })}
@@ -2131,6 +2332,39 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           </DialogHeader>
           {selectedAircraft && (
             <div className="space-y-3 text-sm">
+              {/* THREAT LEVEL DISPLAY */}
+              {selectedAircraft.threatLevel && (
+                <div className="bg-red-950/30 border-2 border-red-500/50 p-4 rounded">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-red-400 font-bold tracking-wider">⚠️ THREAT ASSESSMENT</p>
+                    <p className="text-lg font-mono font-bold" style={{
+                      color: selectedAircraft.threatLevel > 0.027 ? '#ff0000' :
+                             selectedAircraft.threatLevel > 0.025 ? '#ff8800' :
+                             selectedAircraft.threatLevel > 0.023 ? '#ffff00' : '#00ff00'
+                    }}>
+                      {(selectedAircraft.threatLevel * 1000).toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="w-full bg-black/50 h-4 rounded">
+                    <div
+                      className="h-full rounded transition-all"
+                      style={{
+                        width: `${((selectedAircraft.threatLevel - 0.02) / 0.01) * 100}%`,
+                        backgroundColor: selectedAircraft.threatLevel > 0.027 ? '#ff0000' :
+                                       selectedAircraft.threatLevel > 0.025 ? '#ff8800' :
+                                       selectedAircraft.threatLevel > 0.023 ? '#ffff00' : '#00ff00'
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">
+                    {selectedAircraft.threatLevel > 0.027 ? "EXTREME THREAT - Immediate response recommended" :
+                     selectedAircraft.threatLevel > 0.025 ? "HIGH THREAT - Close monitoring required" :
+                     selectedAircraft.threatLevel > 0.023 ? "MODERATE THREAT - Standard protocols" :
+                     "LOW THREAT - Routine surveillance"}
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground">ICAO24</p>
@@ -2233,27 +2467,40 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             </div>
 
             <div className="bg-orange-950/20 border border-orange-500/30 p-4 rounded">
-              <h3 className="text-orange-400 font-bold mb-2 tracking-wider">⚠️ THREAT DETECTION</h3>
-              <p>
-                Use the <span className="text-orange-400 font-bold">SENSITIVITY SLIDER</span> to control your radar detection level:
+              <h3 className="text-orange-400 font-bold mb-2 tracking-wider">⚠️ INTELLIGENT THREAT DETECTION</h3>
+              <p className="mb-2">
+                Each aircraft has a <span className="text-orange-400 font-bold">THREAT LEVEL (20-30)</span> calculated from real-time data:
               </p>
-              <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
-                <li><span className="text-green-400">Below 20%</span>: Safe zone - no threats detected</li>
-                <li><span className="text-yellow-400">20-25%</span>: Danger zone begins - conflicts start emerging</li>
-                <li><span className="text-orange-400">25-30%</span>: Rapid escalation - chain reactions multiplying</li>
-                <li><span className="text-red-400">30% and above</span>: INSTANT CHAOS - total global warfare</li>
+              <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
+                <li><span className="text-red-400">Altitude</span>: Lower flying aircraft = higher threat</li>
+                <li><span className="text-red-400">Speed</span>: Very fast or very slow = suspicious</li>
+                <li><span className="text-red-400">Vertical Rate</span>: Rapid climb/descent = concerning</li>
+                <li><span className="text-red-400">Emergency Codes</span>: Squawk 7500/7600/7700 = critical</li>
+                <li><span className="text-red-400">Origin</span>: Foreign aircraft = monitored</li>
+              </ul>
+              <p className="mt-3 text-sm">
+                Use the <span className="text-orange-400 font-bold">SENSITIVITY SLIDER</span> to set detection threshold:
+              </p>
+              <ul className="list-disc list-inside mt-1 space-y-1 ml-2 text-sm">
+                <li><span className="text-green-400">20%</span>: Only shows EXTREME threats (level 20)</li>
+                <li><span className="text-yellow-400">25%</span>: Shows MODERATE to HIGH threats (level 20-25)</li>
+                <li><span className="text-red-400">30%</span>: Shows ALL aircraft (level 20-30)</li>
               </ul>
             </div>
 
             <div className="bg-red-950/20 border border-red-500/30 p-4 rounded">
-              <h3 className="text-red-400 font-bold mb-2 tracking-wider">☢️ WARNING: CHAOS THEORY IN ACTION</h3>
-              <p>
-                <span className="text-red-400 font-bold">Every aircraft detected is a potential trigger</span> for conflict. 
-                Higher sensitivity = More threats = More conflicts = Chain reactions of retaliation.
+              <h3 className="text-red-400 font-bold mb-2 tracking-wider">☢️ AIRCRAFT COLOR CODING</h3>
+              <p className="text-sm mb-2">
+                Planes are color-coded by threat level:
               </p>
-              <p className="mt-2">
-                Watch the <span className="text-primary font-bold">COMBAT STATISTICS</span> panel (bottom-left) to monitor escalation. 
-                Click it to view detailed analytics.
+              <ul className="list-none space-y-1 ml-2 text-sm">
+                <li><span className="text-green-400">● GREEN</span>: Low threat (20-22.5) - Routine surveillance</li>
+                <li><span className="text-yellow-400">● YELLOW</span>: Moderate threat (22.5-25) - Standard monitoring</li>
+                <li><span className="text-orange-400">● ORANGE</span>: High threat (25-27.5) - Close watch required</li>
+                <li><span className="text-red-400">● RED</span>: Extreme threat (27.5-30) - Immediate attention</li>
+              </ul>
+              <p className="mt-3 text-sm">
+                <span className="text-red-400 font-bold">Red aircraft pulse and show threat numbers above them.</span> Click any aircraft to see detailed threat assessment.
               </p>
             </div>
 
