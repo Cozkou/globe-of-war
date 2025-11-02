@@ -61,6 +61,62 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
           />
         </div>
       </div>
+
+      {/* Large spinning globe at bottom */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 pointer-events-none overflow-hidden w-full flex justify-center">
+        <div 
+          className="relative"
+          style={{
+            width: '1200px',
+            height: '600px',
+            transform: 'translateY(50%)'
+          }}
+        >
+          {/* Main globe sphere */}
+          <div 
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: 'radial-gradient(circle at 30% 30%, rgba(255, 80, 80, 0.4), rgba(180, 20, 20, 0.6), rgba(100, 10, 10, 0.8))',
+              animation: 'globeSpin 30s linear infinite',
+              boxShadow: '0 0 100px rgba(255, 0, 0, 0.5), inset 0 0 100px rgba(0, 0, 0, 0.5)'
+            }}
+          />
+          
+          {/* Globe grid overlay */}
+          <div 
+            className="absolute inset-0 rounded-full opacity-40"
+            style={{
+              backgroundImage: `
+                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255, 51, 51, 0.3) 49px, rgba(255, 51, 51, 0.3) 50px),
+                repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(255, 51, 51, 0.3) 49px, rgba(255, 51, 51, 0.3) 50px)
+              `,
+              animation: 'globeSpin 30s linear infinite'
+            }}
+          />
+          
+          {/* Meridian lines (vertical curves) */}
+          <div 
+            className="absolute inset-0 rounded-full opacity-30"
+            style={{
+              background: `
+                radial-gradient(ellipse 100% 100% at 30% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%),
+                radial-gradient(ellipse 100% 100% at 50% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%),
+                radial-gradient(ellipse 100% 100% at 70% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%)
+              `,
+              animation: 'globeSpin 30s linear infinite'
+            }}
+          />
+          
+          {/* Glow effect */}
+          <div 
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: 'radial-gradient(circle at center, transparent 60%, rgba(255, 0, 0, 0.3) 100%)',
+              filter: 'blur(20px)'
+            }}
+          />
+        </div>
+      </div>
       
       {/* CRT scanlines effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
@@ -69,7 +125,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         }}
       />
       
-      <div className={`flex flex-col items-center gap-8 ${isAnimating ? 'fly-up' : ''}`}>
+      <div className={`flex flex-col items-center gap-8 relative z-20 ${isAnimating ? 'fly-up' : ''}`}>
         <div className="space-y-6 text-center">
           <h1 className="text-4xl md:text-6xl lg:text-7xl text-primary leading-tight px-4 tracking-[0.3em]">
             SKYTRACK
@@ -157,17 +213,26 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
               transform: rotate(360deg);
             }
           }
+          
+          @keyframes globeSpin {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(360deg);
+            }
+          }
         `}
       </style>
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-wider z-10">
         WLDN x Builder's Brew | HackTheBurgh 2025 ©
       </div>
 
-      {/* Red glow at bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/10 to-transparent pointer-events-none" />
+      {/* Red glow at bottom - positioned above globe */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-war-blood/10 to-transparent pointer-events-none z-5" />
     </div>
   );
 }
