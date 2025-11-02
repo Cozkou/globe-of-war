@@ -1494,28 +1494,28 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
         </DialogContent>
       </Dialog>
 
-      {/* Attack Statistics Panel - Top Right */}
-      <div className="absolute top-8 right-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in min-w-[280px]">
+      {/* Attack Statistics Panel - Bottom Left */}
+      <div className="absolute bottom-8 left-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in min-w-[280px]">
         <h3 className="text-xs text-primary tracking-wider text-glow mb-3 text-center border-b border-primary/30 pb-2">
           COMBAT STATISTICS
         </h3>
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-muted-foreground tracking-wide">ATTACKS RECEIVED</span>
-            <span className="text-sm text-red-400 font-mono font-bold">{enemyCountries.length}</span>
+            <span className="text-sm text-red-400 font-mono font-bold animate-pulse">{enemyCountries.length}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-muted-foreground tracking-wide">ATTACKS SENT</span>
-            <span className="text-sm text-orange-400 font-mono font-bold">{chainConflicts.length}</span>
+            <span className="text-sm text-orange-400 font-mono font-bold animate-pulse">{chainConflicts.length}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-[10px] text-muted-foreground tracking-wide">RANDOM CONFLICTS</span>
-            <span className="text-sm text-yellow-400 font-mono font-bold">{randomConflicts.length}</span>
+            <span className="text-sm text-yellow-400 font-mono font-bold animate-pulse">{randomConflicts.length}</span>
           </div>
           <div className="border-t border-primary/30 pt-2 mt-2">
             <div className="flex justify-between items-center">
               <span className="text-[10px] text-primary tracking-wide font-bold">TOTAL CONFLICTS</span>
-              <span className="text-base text-primary font-mono font-bold text-glow">
+              <span className="text-base text-primary font-mono font-bold text-glow animate-pulse">
                 {enemyCountries.length + chainConflicts.length + randomConflicts.length}
               </span>
             </div>
@@ -1527,6 +1527,19 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               style={{ color: `hsl(${120 - sensitivity[0] * 120}, 100%, 50%)` }}
             >
               {(sensitivity[0] * 100).toFixed(0)}%
+            </span>
+          </div>
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide">COUNTRIES AFFECTED</span>
+            <span className="text-sm text-cyan-400 font-mono font-bold">
+              {new Set([
+                selectedCountry,
+                ...enemyCountries,
+                ...chainConflicts.map(c => c[0]),
+                ...chainConflicts.map(c => c[1]),
+                ...randomConflicts.map(c => c[0]),
+                ...randomConflicts.map(c => c[1])
+              ]).size}
             </span>
           </div>
         </div>
