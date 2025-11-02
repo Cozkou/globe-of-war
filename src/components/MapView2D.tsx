@@ -56,6 +56,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [randomConflicts, setRandomConflicts] = useState<Array<[string, string]>>([]);
   const [chainConflicts, setChainConflicts] = useState<Array<[string, string]>>([]);
   const [errorMessages, setErrorMessages] = useState<Array<{ id: number; message: string }>>([]);
+  const [timeRemaining, setTimeRemaining] = useState(600); // 10 minutes in seconds
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [isExploding, setIsExploding] = useState(false);
+  const [explosionRays, setExplosionRays] = useState<Array<{ angle: number; id: number }>>([]);
 
   // Load country data
   useEffect(() => {
@@ -150,6 +154,49 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     
     return () => clearInterval(interval);
   }, [sensitivity, enemyCountries.length, chainConflicts.length, randomConflicts.length]);
+
+  // Start timer when sensitivity first increases
+  useEffect(() => {
+    if (sensitivity[0] > 0 && !timerStarted) {
+      setTimerStarted(true);
+    }
+  }, [sensitivity, timerStarted]);
+
+  // Countdown timer with variable speed based on sensitivity
+  useEffect(() => {
+    if (!timerStarted || isExploding) return;
+
+    // Calculate countdown speed: higher sensitivity = faster countdown
+    // At 0 sensitivity: 1x speed, at 1.0 sensitivity: 10x speed
+    const speedMultiplier = 1 + (sensitivity[0] * 9);
+    const intervalTime = 1000 / speedMultiplier;
+
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 0) {
+          setIsExploding(true);
+          return 0;
+        }
+        return Math.max(0, prev - 1);
+      });
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, [timerStarted, sensitivity, isExploding]);
+
+  // Explosion effect - generate red X-rays
+  useEffect(() => {
+    if (!isExploding) return;
+
+    const rays: Array<{ angle: number; id: number }> = [];
+    for (let i = 0; i < 50; i++) {
+      rays.push({
+        angle: (360 / 50) * i,
+        id: Date.now() + i
+      });
+    }
+    setExplosionRays(rays);
+  }, [isExploding]);
 
   // Generate fake error messages when sensitivity > 0.75
   useEffect(() => {
@@ -368,8 +415,39 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const viewBoxWidth = 1000;
   const viewBoxHeight = 500;
 
+  // Format timer display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Get timer color based on time remaining
+  const getTimerColor = () => {
+    if (timeRemaining > 300) return '#00ff00'; // Green
+    if (timeRemaining > 120) return '#ffff00'; // Yellow
+    if (timeRemaining > 30) return '#ff9900'; // Orange
+    return '#ff0000'; // Red
+  };
+
   return (
     <div className="relative w-full h-screen bg-background overflow-hidden">
+      {/* Timer display */}
+      {timerStarted && (
+        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-30">
+          <div
+            className="font-mono text-6xl font-bold tracking-wider animate-pulse"
+            style={{
+              color: getTimerColor(),
+              textShadow: `0 0 20px ${getTimerColor()}, 0 0 40px ${getTimerColor()}`,
+              filter: timeRemaining < 30 ? 'brightness(1.5)' : 'brightness(1)'
+            }}
+          >
+            {formatTime(timeRemaining)}
+          </div>
+        </div>
+      )}
+
       {/* Fake error messages */}
       <div className="absolute top-4 left-4 space-y-2 z-20">
         {errorMessages.map((error) => (
@@ -392,6 +470,47 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 0, 0, 0.15) 2px, rgba(255, 0, 0, 0.15) 4px)'
         }}
       />
+
+      {/* Explosion effect */}
+      {isExploding && (
+        <div className="absolute inset-0 z-40 pointer-events-none">
+          {explosionRays.map((ray) => (
+            <div
+              key={ray.id}
+              className="absolute top-1/2 left-1/2 origin-left"
+              style={{
+                transform: `rotate(${ray.angle}deg)`,
+                animation: 'explosionRay 2s ease-out forwards'
+              }}
+            >
+              <div
+                className="h-2 bg-gradient-to-r from-red-500 to-transparent"
+                style={{
+                  width: '2000px',
+                  boxShadow: '0 0 20px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.6)'
+                }}
+              />
+            </div>
+          ))}
+          <style>
+            {`
+              @keyframes explosionRay {
+                0% {
+                  opacity: 0;
+                  transform: rotate(${0}deg) scale(0);
+                }
+                50% {
+                  opacity: 1;
+                }
+                100% {
+                  opacity: 0;
+                  transform: rotate(${0}deg) scale(1.5);
+                }
+              }
+            `}
+          </style>
+        </div>
+      )}
       
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-background">
@@ -454,7 +573,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           
           {/* Spinning radar on selected country */}
           {selectedCountry && countryCentroids[selectedCountry] && (
-            <g>
+            <g style={{ zIndex: 9999 }}>
               {(() => {
                 const [cx, cy] = projectToSVG(
                   countryCentroids[selectedCountry][0],
