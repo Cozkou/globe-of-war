@@ -200,7 +200,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* 3D Spinning Globe at bottom */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[40vh]'}`}
+        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[30vh]'}`}
         style={{ height: '100vh' }}
       >
         <Canvas camera={{ position: [0, 0, 3.5], fov: 45 }} gl={{ alpha: true }}>
@@ -236,16 +236,22 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
           </p>
         </div>
         
-        {/* Info container about chaos theory */}
-        <div className="bg-card/80 border-2 border-primary/50 px-8 py-6 max-w-xl mx-4 space-y-3">
-          <h3 className="text-xs text-primary tracking-wider">CHAOS THEORY SIMULATION</h3>
-          <p className="text-[10px] md:text-xs text-muted-foreground/90 leading-relaxed">
-            This project explores the butterfly effect: how small changes in initial conditions can lead to vastly different outcomes. 
-            By adjusting the radar sensitivity slider, witness how a minor variable shift cascades into global conflict.
-          </p>
-          <p className="text-[10px] md:text-xs text-muted-foreground/90 leading-relaxed">
-            We're investigating the fragility of international stability through real-time aviation data and dynamic conflict modeling.
-          </p>
+        {/* Info container about chaos theory - redesigned */}
+        <div className="max-w-4xl mx-4 grid md:grid-cols-2 gap-4">
+          <div className="bg-card/80 border border-primary/30 px-6 py-4 space-y-2">
+            <h3 className="text-[10px] text-primary tracking-wider">CHAOS THEORY</h3>
+            <p className="text-[10px] text-muted-foreground/90 leading-relaxed">
+              This project explores the butterfly effect: how small changes in initial conditions can lead to vastly different outcomes. 
+              By adjusting the radar sensitivity slider, witness how a minor variable shift cascades into global conflict.
+            </p>
+          </div>
+          
+          <div className="bg-card/80 border border-primary/30 px-6 py-4 space-y-2">
+            <h3 className="text-[10px] text-primary tracking-wider">SIMULATION MODEL</h3>
+            <p className="text-[10px] text-muted-foreground/90 leading-relaxed">
+              We're investigating the fragility of international stability through real-time aviation data and dynamic conflict modeling.
+            </p>
+          </div>
         </div>
         
         <Button
