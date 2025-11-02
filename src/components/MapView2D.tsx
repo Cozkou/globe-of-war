@@ -54,6 +54,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [showConflicts, setShowConflicts] = useState(false);
   const [visibleConflictCount, setVisibleConflictCount] = useState(0);
   const [randomConflicts, setRandomConflicts] = useState<Array<[string, string]>>([]);
+  const [chainConflicts, setChainConflicts] = useState<Array<[string, string]>>([]);
 
   // Load country data
   useEffect(() => {
@@ -132,7 +133,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     
     setShowConflicts(true);
-    const totalConflicts = enemyCountries.length + randomConflicts.length;
+    const totalConflicts = enemyCountries.length + chainConflicts.length + randomConflicts.length;
     setVisibleConflictCount(0);
     
     // Gradually show all conflicts
@@ -146,7 +147,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }, 150); // Faster animation for many conflicts
     
     return () => clearInterval(interval);
-  }, [sensitivity, enemyCountries.length, randomConflicts.length]);
+  }, [sensitivity, enemyCountries.length, chainConflicts.length, randomConflicts.length]);
 
   // Map sensitivity to war level - extremely responsive to small changes
   useEffect(() => {
@@ -180,7 +181,19 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     
     const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
-    setEnemyCountries(shuffled.slice(0, numEnemies));
+    const selectedEnemies = shuffled.slice(0, numEnemies);
+    setEnemyCountries(selectedEnemies);
+    
+    // Chain reaction: Each enemy country attacks another random country
+    const chainPairs: Array<[string, string]> = [];
+    selectedEnemies.forEach(enemy => {
+      const availableTargets = availableCountries.filter(c => c !== enemy);
+      if (availableTargets.length > 0) {
+        const target = availableTargets[Math.floor(Math.random() * availableTargets.length)];
+        chainPairs.push([enemy, target]);
+      }
+    });
+    setChainConflicts(chainPairs);
     
     // Random country-to-country conflicts: scale dramatically
     const randomPairs: Array<[string, string]> = [];
@@ -562,9 +575,78 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })}
           
-          {/* Random country-to-country conflicts - starts after main conflicts */}
-          {showConflicts && randomConflicts.map(([country1, country2], idx) => {
+          {/* Chain reaction conflicts - attacked countries fight back to random targets */}
+          {showConflicts && chainConflicts.map(([country1, country2], idx) => {
             const conflictIndex = enemyCountries.length + idx;
+            if (conflictIndex >= visibleConflictCount) return null;
+            if (!countryCentroids[country1] || !countryCentroids[country2]) return null;
+            
+            const [x1, y1] = projectToSVG(countryCentroids[country1][0], countryCentroids[country1][1], viewBoxWidth, viewBoxHeight);
+            const [x2, y2] = projectToSVG(countryCentroids[country2][0], countryCentroids[country2][1], viewBoxWidth, viewBoxHeight);
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const cx = x1 + dx / 2 + dy * 0.3;
+            const cy = y1 + dy / 2 - dx * 0.3;
+            
+            return (
+              <g key={`chain-conflict-${idx}`} className="animate-fade-in">
+                {/* Chain reaction missile path */}
+                <path
+                  d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                  fill="none"
+                  stroke="#ffaa00"
+                  strokeWidth="1.2"
+                  opacity="0"
+                  style={{ filter: "drop-shadow(0 0 4px #ffaa00)" }}
+                  strokeDasharray="5,5"
+                >
+                  <animate
+                    attributeName="opacity"
+                    from="0"
+                    to="0.6"
+                    dur="0.5s"
+                    fill="freeze"
+                  />
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="0"
+                    to="100"
+                    dur="2s"
+                    repeatCount="indefinite"
+                  />
+                </path>
+                
+                {/* Animated missile for chain */}
+                <circle
+                  r="2.5"
+                  fill="#ffff00"
+                  style={{ filter: "drop-shadow(0 0 5px #ffff00)" }}
+                >
+                  <animateMotion
+                    dur="3.5s"
+                    repeatCount="indefinite"
+                    begin={`${idx * 0.15}s`}
+                  >
+                    <mpath href={`#chain-path-${idx}`} />
+                  </animateMotion>
+                </circle>
+                
+                {/* Path definition for motion */}
+                <defs>
+                  <path
+                    id={`chain-path-${idx}`}
+                    d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                    fill="none"
+                  />
+                </defs>
+              </g>
+            );
+          })}
+          
+          {/* Random country-to-country conflicts - starts after chain conflicts */}
+          {showConflicts && randomConflicts.map(([country1, country2], idx) => {
+            const conflictIndex = enemyCountries.length + chainConflicts.length + idx;
             if (conflictIndex >= visibleConflictCount) return null;
             if (!countryCentroids[country1] || !countryCentroids[country2]) return null;
             
@@ -651,12 +733,12 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         </svg>
       </div>
 
-      {/* Screen shake effect based on sensitivity */}
+      {/* Screen shake effect based on conflict count */}
       <div 
         className="absolute inset-0 pointer-events-none"
         style={{
-          animation: sensitivity[0] > 0.5 
-            ? `shake ${Math.max(0.1, 1 - sensitivity[0])}s infinite` 
+          animation: visibleConflictCount > 10 
+            ? `shake ${Math.max(0.1, 0.8 - (visibleConflictCount / 100))}s infinite` 
             : 'none'
         }}
       >
@@ -664,21 +746,21 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {`
             @keyframes shake {
               0%, 100% { transform: translate(0, 0); }
-              10% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
-              20% { transform: translate(${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
-              30% { transform: translate(-${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
-              40% { transform: translate(${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
-              50% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
-              60% { transform: translate(${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
-              70% { transform: translate(-${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
-              80% { transform: translate(${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
-              90% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+              10% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
+              20% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
+              30% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
+              40% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
+              50% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
+              60% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
+              70% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
+              80% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
+              90% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
             }
           `}
         </style>
         <div className="absolute inset-0" style={{
-          background: sensitivity[0] > 0.7 
-            ? `radial-gradient(circle at center, rgba(255, 0, 0, ${(sensitivity[0] - 0.7) * 0.3}) 0%, transparent 70%)`
+          background: visibleConflictCount > 50 
+            ? `radial-gradient(circle at center, rgba(255, 0, 0, ${Math.min((visibleConflictCount - 50) / 200, 0.3)}) 0%, transparent 70%)`
             : 'transparent'
         }} />
       </div>
@@ -842,7 +924,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               {sensitivity[0].toFixed(2)}
             </p>
             <p className="text-primary font-mono">
-              {enemyCountries.length + randomConflicts.length} {(enemyCountries.length + randomConflicts.length) === 1 ? 'CONFLICT' : 'CONFLICTS'}
+              {enemyCountries.length + chainConflicts.length + randomConflicts.length} {(enemyCountries.length + chainConflicts.length + randomConflicts.length) === 1 ? 'CONFLICT' : 'CONFLICTS'}
             </p>
           </div>
         </div>
