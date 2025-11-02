@@ -55,6 +55,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [visibleConflictCount, setVisibleConflictCount] = useState(0);
   const [randomConflicts, setRandomConflicts] = useState<Array<[string, string]>>([]);
   const [chainConflicts, setChainConflicts] = useState<Array<[string, string]>>([]);
+  const [errorMessages, setErrorMessages] = useState<Array<{ id: number; message: string }>>([]);
 
   // Load country data
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     if (intensityValue < 0.01) {
       setShowConflicts(false);
       setVisibleConflictCount(0);
+      setErrorMessages([]);
       return;
     }
     
@@ -148,6 +150,40 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     
     return () => clearInterval(interval);
   }, [sensitivity, enemyCountries.length, chainConflicts.length, randomConflicts.length]);
+
+  // Generate fake error messages when sensitivity > 0.75
+  useEffect(() => {
+    if (sensitivity[0] > 0.75) {
+      const errorInterval = setInterval(() => {
+        const fakeErrors = [
+          "CRITICAL: RADIATION DETECTED",
+          "SYSTEM FAILURE: DEFENSE GRID OFFLINE",
+          "WARNING: MISSILE LAUNCH DETECTED",
+          "ERROR: COMMUNICATION LOST",
+          "ALERT: PERIMETER BREACH",
+          "CRITICAL: REACTOR OVERLOAD",
+          "WARNING: HOSTILE AIRCRAFT DETECTED",
+          "ERROR: COMMAND CENTER COMPROMISED",
+          "ALERT: NUCLEAR SIGNATURE DETECTED",
+          "CRITICAL: CIVILIAN CASUALTIES REPORTED"
+        ];
+        
+        const randomError = fakeErrors[Math.floor(Math.random() * fakeErrors.length)];
+        const newError = { id: Date.now() + Math.random(), message: randomError };
+        
+        setErrorMessages(prev => [...prev, newError]);
+        
+        // Remove error after 3 seconds
+        setTimeout(() => {
+          setErrorMessages(prev => prev.filter(e => e.id !== newError.id));
+        }, 3000);
+      }, 800);
+      
+      return () => clearInterval(errorInterval);
+    } else {
+      setErrorMessages([]);
+    }
+  }, [sensitivity]);
 
   // Map sensitivity to war level - extremely responsive to small changes
   useEffect(() => {
@@ -334,6 +370,22 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
 
   return (
     <div className="relative w-full h-screen bg-background overflow-hidden">
+      {/* Fake error messages */}
+      <div className="absolute top-4 left-4 space-y-2 z-20">
+        {errorMessages.map((error) => (
+          <div
+            key={error.id}
+            className="bg-red-900/90 border border-red-500 px-4 py-2 text-red-100 font-mono text-xs tracking-wider animate-fade-in"
+            style={{
+              textShadow: '0 0 10px rgba(255, 0, 0, 0.8)',
+              animation: 'fade-in 0.3s ease-out'
+            }}
+          >
+            {error.message}
+          </div>
+        ))}
+      </div>
+
       {/* Subtle scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-5 crt-effect"
         style={{
@@ -355,7 +407,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           style={{ 
             maxHeight: '100%', 
             maxWidth: '100%',
-            animation: visibleConflictCount > 10 
+            animation: sensitivity[0] > 0.75
               ? `mapShake ${Math.max(0.1, 0.8 - (visibleConflictCount / 100))}s infinite` 
               : 'none'
           }}
@@ -410,7 +462,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   viewBoxWidth,
                   viewBoxHeight
                 );
-                const radarRadius = 30;
+                const radarRadius = 45;
                 
                 return (
                   <>
@@ -421,8 +473,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       r={radarRadius}
                       fill="none"
                       stroke="#00ff00"
-                      strokeWidth="1"
-                      opacity="0.4"
+                      strokeWidth="1.5"
                     />
                     <circle
                       cx={cx}
@@ -430,8 +481,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       r={radarRadius * 0.66}
                       fill="none"
                       stroke="#00ff00"
-                      strokeWidth="0.8"
-                      opacity="0.3"
+                      strokeWidth="1.2"
                     />
                     <circle
                       cx={cx}
@@ -439,8 +489,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       r={radarRadius * 0.33}
                       fill="none"
                       stroke="#00ff00"
-                      strokeWidth="0.6"
-                      opacity="0.2"
+                      strokeWidth="0.9"
                     />
                     
                     {/* Spinning radar sweep */}
@@ -448,13 +497,12 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       <defs>
                         <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                           <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
-                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0.6" />
+                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0.9" />
                         </linearGradient>
                       </defs>
                       <path
                         d={`M ${cx} ${cy} L ${cx + radarRadius} ${cy} A ${radarRadius} ${radarRadius} 0 0 1 ${cx} ${cy - radarRadius} Z`}
                         fill="url(#radarGradient)"
-                        opacity="0.7"
                         style={{ 
                           transformOrigin: `${cx}px ${cy}px`,
                           animation: 'radarSpin 2s linear infinite'
@@ -476,7 +524,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       cy={cy}
                       r="3"
                       fill="#00ff00"
-                      opacity="0.9"
                       className="animate-pulse"
                     />
                   </>
