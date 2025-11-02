@@ -53,6 +53,9 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [warIntensity, setWarIntensity] = useState(0); // 0-10 cycling value
   const [isHolding, setIsHolding] = useState(false);
   const [intensityDirection, setIntensityDirection] = useState(1); // 1 for up, -1 for down
+  const [releasedIntensity, setReleasedIntensity] = useState(0); // Captured intensity on release
+  const [showConflicts, setShowConflicts] = useState(false);
+  const [visibleConflictCount, setVisibleConflictCount] = useState(0);
 
   // Load country data
   useEffect(() => {
@@ -151,11 +154,34 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return () => cancelAnimationFrame(animationFrame);
   }, [isHolding, intensityDirection]);
 
+  // Handle button release
+  const handleRelease = () => {
+    setIsHolding(false);
+    setReleasedIntensity(warIntensity);
+    setShowConflicts(true);
+    setVisibleConflictCount(0); // Reset visible conflicts
+  };
+
+  // Gradually show conflicts after release
+  useEffect(() => {
+    if (!showConflicts) return;
+    
+    const numConflicts = Math.min(5, Math.max(1, Math.ceil(releasedIntensity / 2)));
+    
+    if (visibleConflictCount < numConflicts) {
+      const timer = setTimeout(() => {
+        setVisibleConflictCount(prev => prev + 1);
+      }, 300); // 300ms delay between each line appearing
+      
+      return () => clearTimeout(timer);
+    }
+  }, [showConflicts, visibleConflictCount, releasedIntensity]);
+
   // Map intensity to war level (1-5)
   useEffect(() => {
-    const level = Math.min(5, Math.max(1, Math.ceil(warIntensity / 2)));
+    const level = Math.min(5, Math.max(1, Math.ceil(releasedIntensity / 2)));
     setWarLevel(level);
-  }, [warIntensity]);
+  }, [releasedIntensity]);
 
   // Select random enemy countries based on war level
   useEffect(() => {
@@ -334,7 +360,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
           
           {/* Conflict visualizations between selected country and enemies */}
-          {selectedCountry && countryCentroids[selectedCountry] && enemyCountries.map((enemyCountry, idx) => {
+          {showConflicts && selectedCountry && countryCentroids[selectedCountry] && enemyCountries.slice(0, visibleConflictCount).map((enemyCountry, idx) => {
             if (!countryCentroids[enemyCountry]) return null;
             
             const [x1, y1] = projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight);
@@ -760,45 +786,22 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* War Intensity Hold Button */}
-      <div className="absolute bottom-8 right-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 mb-4">
-            <div 
-              className="w-2 h-2 rounded-full animate-pulse" 
-              style={{ 
-                backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)` 
-              }}
-            />
-            <p 
-              className="text-xs tracking-wider font-mono"
-              style={{ 
-                color: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)` 
-              }}
-            >
-              WAR INTENSITY: {warIntensity.toFixed(1)} / 10
-            </p>
-          </div>
-          <Button
-            onMouseDown={() => setIsHolding(true)}
-            onMouseUp={() => setIsHolding(false)}
-            onMouseLeave={() => setIsHolding(false)}
-            onTouchStart={() => setIsHolding(true)}
-            onTouchEnd={() => setIsHolding(false)}
-            className="w-full h-20 text-sm font-mono border-2 transition-all select-none"
-            style={{
-              backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)`,
-              borderColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 40%)`,
-              color: warIntensity > 5 ? '#ffffff' : '#000000',
-              boxShadow: `0 0 ${10 + warIntensity * 2}px hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%, 0.6)`,
-            }}
-          >
-            {isHolding ? 'CHARGING...' : 'HOLD TO CHARGE'}
-          </Button>
-          <div className="text-xs text-center text-muted-foreground font-mono">
-            LEVEL {warLevel} / 5
-          </div>
-        </div>
+      {/* War Intensity Hold Button - Bottom Center */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-scale-in">
+        <Button
+          onMouseDown={() => setIsHolding(true)}
+          onMouseUp={handleRelease}
+          onMouseLeave={handleRelease}
+          onTouchStart={() => setIsHolding(true)}
+          onTouchEnd={handleRelease}
+          className="w-32 h-32 rounded-full text-sm font-mono border-4 transition-all select-none"
+          style={{
+            backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)`,
+            borderColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 40%)`,
+            boxShadow: `0 0 ${20 + warIntensity * 4}px hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%, 0.8)`,
+            transform: isHolding ? 'scale(1.1)' : 'scale(1)',
+          }}
+        />
       </div>
     </div>
   );
