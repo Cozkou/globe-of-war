@@ -478,62 +478,96 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
 
       {/* Explosion effect */}
       {isExploding && (
-        <div className="absolute inset-0 z-50 pointer-events-none bg-black">
-          {explosionRays.map((ray, index) => (
-            <div
-              key={ray.id}
-              className="absolute top-1/2 left-1/2 origin-left"
-              style={{
-                transform: `rotate(${ray.angle}deg)`,
-                animation: `explosionRay 3s ease-out forwards`,
-                animationDelay: `${index * 0.005}s`
-              }}
-            >
-              <div
-                className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-transparent"
-                style={{
-                  width: '3000px',
-                  boxShadow: '0 0 30px rgba(255, 0, 0, 1), 0 0 60px rgba(255, 0, 0, 0.8)',
-                  filter: 'blur(2px)'
-                }}
-              />
-            </div>
+        <div className="absolute inset-0 z-50 pointer-events-none">
+          {/* Multiple explosion flashes */}
+          <div className="absolute inset-0 bg-white" style={{
+            animation: 'explosionFlash 2s ease-out forwards'
+          }} />
+          
+          {/* Radial explosion from center */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full bg-gradient-radial from-yellow-200 via-orange-500 to-red-600" style={{
+            animation: 'explosionGrow 2s ease-out forwards',
+            boxShadow: '0 0 200px 100px rgba(255, 100, 0, 0.8)'
+          }} />
+          
+          {/* Shockwave rings */}
+          {[0, 0.3, 0.6, 0.9].map((delay, i) => (
+            <div key={i} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-4 border-orange-500" style={{
+              animation: 'shockwave 2s ease-out forwards',
+              animationDelay: `${delay}s`,
+              opacity: 0
+            }} />
           ))}
+          
+          {/* Debris particles */}
+          {Array.from({ length: 50 }).map((_, i) => (
+            <div key={i} className="absolute top-1/2 left-1/2 w-2 h-2 bg-red-600 rounded" style={{
+              animation: 'debris 2s ease-out forwards',
+              animationDelay: `${i * 0.02}s`,
+              transform: `rotate(${i * 7.2}deg)`
+            }} />
+          ))}
+          
+          {/* Final fade to black */}
+          <div className="absolute inset-0 bg-black" style={{
+            animation: 'fadeToBlack 2s ease-out forwards',
+            animationDelay: '1s',
+            opacity: 0
+          }} />
+          
           <style>
             {`
-              @keyframes explosionRay {
-                0% {
+              @keyframes explosionFlash {
+                0% { opacity: 0; }
+                10% { opacity: 1; }
+                30% { opacity: 0; }
+                40% { opacity: 0.8; }
+                60% { opacity: 0; }
+                100% { opacity: 0; }
+              }
+              
+              @keyframes explosionGrow {
+                0% { 
+                  transform: translate(-50%, -50%) scale(0);
+                  opacity: 1;
+                }
+                50% {
+                  transform: translate(-50%, -50%) scale(15);
+                  opacity: 0.8;
+                }
+                100% { 
+                  transform: translate(-50%, -50%) scale(30);
                   opacity: 0;
-                  transform: rotate(${0}deg) scale(0) translateX(-50%);
-                }
-                30% {
-                  opacity: 1;
-                }
-                100% {
-                  opacity: 1;
-                  transform: rotate(${0}deg) scale(3) translateX(0%);
                 }
               }
-            `}
-          </style>
-          {/* Full red overlay at the end */}
-          <div 
-            className="absolute inset-0 bg-red-600"
-            style={{
-              animation: 'fadeInRed 3s ease-out forwards',
-              animationDelay: '1.5s',
-              opacity: 0
-            }}
-          />
-          <style>
-            {`
-              @keyframes fadeInRed {
+              
+              @keyframes shockwave {
                 0% {
-                  opacity: 0;
+                  transform: translate(-50%, -50%) scale(0);
+                  opacity: 1;
+                  border-width: 8px;
                 }
                 100% {
+                  transform: translate(-50%, -50%) scale(40);
+                  opacity: 0;
+                  border-width: 1px;
+                }
+              }
+              
+              @keyframes debris {
+                0% {
+                  transform: translate(-50%, -50%) rotate(0deg) translateX(0) scale(1);
                   opacity: 1;
                 }
+                100% {
+                  transform: translate(-50%, -50%) rotate(360deg) translateX(800px) scale(0);
+                  opacity: 0;
+                }
+              }
+              
+              @keyframes fadeToBlack {
+                0% { opacity: 0; }
+                100% { opacity: 1; }
               }
             `}
           </style>
@@ -555,23 +589,26 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             maxHeight: '100%', 
             maxWidth: '100%',
             animation: sensitivity[0] > 0.75
-              ? `mapShake ${Math.max(0.05, 0.8 - (visibleConflictCount / 100) - (1 - (timeRemaining / 600)) * 0.5)}s infinite` 
-              : 'none'
+              ? `mapShake ${Math.max(0.2, 1 - (visibleConflictCount / 200))}s infinite` 
+              : 'none',
+            transform: isExploding ? 'scale(1.5)' : 'scale(1)',
+            opacity: isExploding ? 0 : 1,
+            transition: 'all 2s ease-out'
           }}
         >
           <style>
             {`
               @keyframes mapShake {
                 0%, 100% { transform: translate(0, 0) rotate(0deg); }
-                10% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                20% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                30% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                40% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                50% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(0deg); }
-                60% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                70% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                80% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
-                90% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                10% { transform: translate(-1px, 1px) rotate(-0.2deg); }
+                20% { transform: translate(1px, -1px) rotate(0.2deg); }
+                30% { transform: translate(-1px, -1px) rotate(-0.2deg); }
+                40% { transform: translate(1px, 1px) rotate(0.2deg); }
+                50% { transform: translate(-1px, 1px) rotate(0deg); }
+                60% { transform: translate(1px, -1px) rotate(-0.2deg); }
+                70% { transform: translate(-1px, -1px) rotate(0.2deg); }
+                80% { transform: translate(1px, 1px) rotate(-0.2deg); }
+                90% { transform: translate(-1px, 1px) rotate(0.2deg); }
               }
             `}
           </style>
