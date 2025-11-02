@@ -100,4 +100,17 @@ All colors MUST be HSL.
   .fly-up {
     animation: fly-up 1s ease-in-out forwards;
   }
+
+  /* Aircraft icon hover effect */
+  .aircraft-icon {
+    transition: filter 0.2s ease;
+  }
+
+  .aircraft-icon:hover {
+    filter: drop-shadow(0 0 12px rgba(255, 51, 51, 1)) brightness(1.3);
+  }
+
+  .aircraft-icon:hover circle {
+    opacity: 0.9 !important;
+  }
 }

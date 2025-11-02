@@ -519,6 +519,25 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     return [x, y];
   };
 
+  // Calculate bearing (angle) from point A to point B in degrees
+  const calculateBearing = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+    
+    const y = Math.sin(dLon) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+    
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360; // Normalize to 0-360
+  };
+
+  // Get the selected country's centroid
+  const selectedCountryCentroid = useMemo(() => {
+    if (!selectedCountry || !countryCentroids[selectedCountry]) return null;
+    return countryCentroids[selectedCountry];
+  }, [selectedCountry, countryCentroids]);
+
   const convertCoordinatesToPath = (coordinates: number[][], width: number, height: number): string[] => {
     if (coordinates.length === 0) return [];
     
@@ -1181,19 +1200,42 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                   viewBoxHeight
                 );
                 const radarRadius = 45;
+                const uniqueId = `radar-${selectedCountry.replace(/\s+/g, '-')}`;
                 
                 return (
                   <>
+                    <defs>
+                      {/* Radial gradient for radar background */}
+                      <radialGradient id={`${uniqueId}-bg`} cx="50%" cy="50%">
+                        <stop offset="0%" stopColor="#001a00" stopOpacity="0.9" />
+                        <stop offset="100%" stopColor="#003300" stopOpacity="0.8" />
+                      </radialGradient>
+                      
+                      {/* Sweep gradient - fading trail */}
+                      <linearGradient id={`${uniqueId}-sweep`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#00ff00" stopOpacity="1" />
+                        <stop offset="15%" stopColor="#00ff00" stopOpacity="0.8" />
+                        <stop offset="40%" stopColor="#00cc00" stopOpacity="0.4" />
+                        <stop offset="70%" stopColor="#009900" stopOpacity="0.15" />
+                        <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
+                      </linearGradient>
+                      
+                      {/* Sweep cone gradient for the arc effect */}
+                      <radialGradient id={`${uniqueId}-sweep-cone`} cx="50%" cy="50%">
+                        <stop offset="0%" stopColor="#00ff00" stopOpacity="0.6" />
+                        <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    
                     {/* Dark green background circle */}
                     <circle
                       cx={cx}
                       cy={cy}
                       r={radarRadius}
-                      fill="#003300"
-                      opacity="0.8"
+                      fill={`url(#${uniqueId}-bg)`}
                     />
                     
-                    {/* Radar sweep circles */}
+                    {/* Radar sweep circles (concentric rings) */}
                     <circle
                       cx={cx}
                       cy={cy}
@@ -1201,6 +1243,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       fill="none"
                       stroke="#00ff00"
                       strokeWidth="1.5"
+                      opacity="0.8"
                     />
                     <circle
                       cx={cx}
@@ -1209,6 +1252,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       fill="none"
                       stroke="#00ff00"
                       strokeWidth="1.2"
+                      opacity="0.6"
                     />
                     <circle
                       cx={cx}
@@ -1217,39 +1261,64 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       fill="none"
                       stroke="#00ff00"
                       strokeWidth="0.9"
+                      opacity="0.6"
                     />
                     
-                    {/* Spinning radar sweep - rotating line with gradient */}
+                    {/* Cross-hair lines (north/south, east/west) */}
+                    <line
+                      x1={cx}
+                      y1={cy - radarRadius}
+                      x2={cx}
+                      y2={cy + radarRadius}
+                      stroke="#00ff00"
+                      strokeWidth="0.8"
+                      opacity="0.4"
+                    />
+                    <line
+                      x1={cx - radarRadius}
+                      y1={cy}
+                      x2={cx + radarRadius}
+                      y2={cy}
+                      stroke="#00ff00"
+                      strokeWidth="0.8"
+                      opacity="0.4"
+                    />
+                    
+                    {/* Radar sweep cone/arc - rotating fading effect */}
                     <g>
-                      <defs>
-                        <linearGradient id="radarSweepGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#00ff00" stopOpacity="1" />
-                          <stop offset="50%" stopColor="#00ff00" stopOpacity="0.6" />
-                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      {/* Rotating sweep line from center to edge */}
-                      <line
-                        x1={cx}
-                        y1={cy}
-                        x2={cx + radarRadius}
-                        y2={cy}
-                        stroke="url(#radarSweepGradient)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        style={{ 
-                          transformOrigin: `${cx}px ${cy}px`,
-                          animation: 'radarSpin 3s linear infinite'
-                        }}
-                      />
-                      <style>
-                        {`
-                          @keyframes radarSpin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                          }
-                        `}
-                      </style>
+                      <clipPath id={`${uniqueId}-clip`}>
+                        <circle cx={cx} cy={cy} r={radarRadius} />
+                      </clipPath>
+                      <g clipPath={`url(#${uniqueId}-clip)`}>
+                        <g transform={`translate(${cx}, ${cy})`}>
+                          <g>
+                            <animateTransform
+                              attributeName="transform"
+                              type="rotate"
+                              from="0"
+                              to="360"
+                              dur="4s"
+                              repeatCount="indefinite"
+                            />
+                            {/* Wide sweep arc for trail effect */}
+                            <path
+                              d={`M 0,0 L ${radarRadius},0 A ${radarRadius},${radarRadius} 0 0,1 ${radarRadius * Math.cos(Math.PI / 8)},${-radarRadius * Math.sin(Math.PI / 8)} Z`}
+                              fill={`url(#${uniqueId}-sweep-cone)`}
+                              opacity="0.6"
+                            />
+                            {/* Main sweep line */}
+                            <line
+                              x1={0}
+                              y1={0}
+                              x2={radarRadius}
+                              y2={0}
+                              stroke={`url(#${uniqueId}-sweep)`}
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                          </g>
+                        </g>
+                      </g>
                     </g>
                     
                     {/* Center dot */}
@@ -1258,8 +1327,34 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       cy={cy}
                       r="3"
                       fill="#00ff00"
-                      className="animate-pulse"
-                    />
+                      opacity="0.9"
+                    >
+                      <animate attributeName="opacity" values="0.9;0.5;0.9" dur="2s" repeatCount="indefinite" />
+                    </circle>
+                    
+                    {/* Outer pulse ring */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="2"
+                      opacity="0"
+                    >
+                      <animate
+                        attributeName="opacity"
+                        values="0;0.6;0"
+                        dur="2s"
+                        repeatCount="indefinite"
+                      />
+                      <animate
+                        attributeName="r"
+                        values={`${radarRadius};${radarRadius * 1.1}`}
+                        dur="2s"
+                        repeatCount="indefinite"
+                      />
+                    </circle>
                   </>
                 );
               })()}
@@ -1271,23 +1366,72 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             if (plane.latitude === null || plane.longitude === null) return null;
             
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
+            
+            // Calculate rotation to point toward country centroid
+            let rotation = 0;
+            if (selectedCountryCentroid) {
+              const bearing = calculateBearing(
+                plane.latitude,
+                plane.longitude,
+                selectedCountryCentroid[1], // lat
+                selectedCountryCentroid[0]  // lng
+              );
+              // Bearing is in compass degrees (0° = north, 90° = east, clockwise)
+              // Plane icon points right/east (0° in SVG) by default
+              // To point north: SVG needs -90° (or 270°), so bearing 0° -> -90°
+              // To point east: SVG needs 0°, so bearing 90° -> 0°
+              // Formula: SVG rotation = bearing - 90
+              rotation = bearing - 90;
+            }
+            
+            // Movement animation: in the rotated coordinate space, forward is positive X
+            // (since the plane icon points right/east by default)
+            const moveDistance = 2; // pixels to move forward in the direction plane is facing
+            const moveX = moveDistance; // Move forward (right in rotated space)
+            const moveY = 0; // No lateral movement
+            
             return (
               <g 
                 key={plane.icao24} 
                 transform={`translate(${x}, ${y})`}
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedAircraft(plane)}
+                className="aircraft-icon"
               >
-                <circle cx="0" cy="0" r="2" fill="#ff3333" opacity={0.6} />
-                <foreignObject x="-8" y="-8" width="16" height="16">
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Plane 
-                      size={10} 
-                      color="#ffffff" 
-                      fill="#ff3333"
+                {/* Pulsing glow effect */}
+                <circle cx="0" cy="0" r="6" fill="#ff3333" opacity={0.2}>
+                  <animate attributeName="r" values="4;8;4" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" />
+                </circle>
+                {/* Base circle */}
+                <circle cx="0" cy="0" r="3" fill="#ff3333" opacity={0.7} />
+                {/* Plane icon rotated to face country and animated to move forward */}
+                <g transform={`rotate(${rotation})`}>
+                  <g>
+                    <animateTransform
+                      attributeName="transform"
+                      type="translate"
+                      values={`0,0;${moveX},${moveY};0,0`}
+                      dur="3s"
+                      repeatCount="indefinite"
                     />
-                  </div>
-                </foreignObject>
+                    <foreignObject x="-10" y="-10" width="20" height="20">
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        filter: 'drop-shadow(0 0 4px rgba(255, 51, 51, 0.8))'
+                      }}>
+                        <Plane 
+                          size={12} 
+                          color="#ffffff" 
+                          fill="#ff3333"
+                          strokeWidth={2}
+                        />
+                      </div>
+                    </foreignObject>
+                  </g>
+                </g>
               </g>
             );
           })}
