@@ -378,7 +378,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             const explosionStart = parseFloat(missileDelay) + missileDuration;
             
             return (
-              <g key={`conflict-${enemyCountry}-${idx}`}>
+              <g key={`conflict-${enemyCountry}-${idx}`} className="animate-fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
                 {/* Level 1-2: Warning lines */}
                 {warLevel >= 1 && (
                   <line
@@ -389,8 +389,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                     stroke={warLevel === 1 ? "#ffaa00" : "#ff6600"}
                     strokeWidth={warLevel === 1 ? "0.5" : "1"}
                     strokeDasharray={warLevel === 1 ? "5,5" : "3,3"}
-                    opacity={warLevel === 1 ? 0.4 : 0.6}
+                    opacity="0"
                   >
+                    <animate
+                      attributeName="opacity"
+                      from="0"
+                      to={warLevel === 1 ? "0.4" : "0.6"}
+                      dur="0.5s"
+                      fill="freeze"
+                    />
                     <animate
                       attributeName="stroke-dashoffset"
                       from="0"
@@ -418,9 +425,17 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       fill="none"
                       stroke={warLevel >= 4 ? "#ff0000" : "#ff8800"}
                       strokeWidth={warLevel >= 3 ? "2" : "1.5"}
-                      opacity="0.7"
+                      opacity="0"
                       style={{ filter: `drop-shadow(0 0 ${warLevel * 2}px ${warLevel >= 4 ? "#ff0000" : "#ff8800"})` }}
-                    />
+                    >
+                      <animate
+                        attributeName="opacity"
+                        from="0"
+                        to="0.7"
+                        dur="0.5s"
+                        fill="freeze"
+                      />
+                    </path>
                     
                     {/* Animated missile */}
                     <circle
@@ -794,14 +809,17 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           onMouseLeave={handleRelease}
           onTouchStart={() => setIsHolding(true)}
           onTouchEnd={handleRelease}
-          className="w-32 h-32 rounded-full text-sm font-mono border-4 transition-all select-none"
+          className="px-12 py-6 text-sm font-bold tracking-widest border-4 transition-all select-none"
           style={{
             backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)`,
             borderColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 40%)`,
+            color: warIntensity > 5 ? '#ffffff' : '#000000',
             boxShadow: `0 0 ${20 + warIntensity * 4}px hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%, 0.8)`,
-            transform: isHolding ? 'scale(1.1)' : 'scale(1)',
+            transform: isHolding ? 'scale(1.05)' : 'scale(1)',
           }}
-        />
+        >
+          RADAR SENSITIVITY
+        </Button>
       </div>
     </div>
   );
