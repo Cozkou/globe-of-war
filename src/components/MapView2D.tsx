@@ -1432,18 +1432,23 @@ export default function MapView2D({
                     const visiblePoints = positionTrail.slice(0, visibleCount);
                     const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
 
-                    // Calculate nice round increments
-                    const getNextPower = (n: number) => {
-                      if (n <= 0) return 1;
-                      return Math.pow(10, Math.ceil(Math.log10(n)));
+                    // Dynamic scaling: start at 20, then double (40, 80, 160, 320, etc.)
+                    const getScaledMax = (n: number) => {
+                      if (n <= 20) return 20;
+                      // Find the next power of 20 * 2^k
+                      let scale = 20;
+                      while (scale < n) {
+                        scale *= 2;
+                      }
+                      return scale;
                     };
-                    const maxDisplay = getNextPower(Math.ceil(maxYActual));
-                    const increments = maxDisplay / 5;
+                    const maxDisplay = getScaledMax(Math.ceil(maxYActual));
+                    const increments = maxDisplay / 2; // 0,10,20 then 0,20,40 then 0,40,80 etc.
 
-                    // Draw Y-axis labels
+                    // Draw Y-axis labels (0, middle, max only)
                     const GRAPH_HEIGHT = 500; // 540 - 40
                     const yLabels = [];
-                    for (let i = 0; i <= 5; i++) {
+                    for (let i = 0; i <= 2; i++) {
                       const yValue = i * increments;
                       const yPixel = 540 - (yValue / maxDisplay) * GRAPH_HEIGHT;
                       yLabels.push(
