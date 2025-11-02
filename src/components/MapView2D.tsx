@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 
 import { HelpCircle, Plane } from 'lucide-react';
 import { feature } from 'topojson-client';
+import { calculateBoundingBox, buildAircraftApiUrl } from '@/lib/country-bounds';
 
 interface MapView2DProps {
   selectedCountry: string;
@@ -23,9 +24,22 @@ interface GeoJSONFeature {
 }
 
 interface Aircraft {
-  id: string;
-  latitude: number;
-  longitude: number;
+  icao24: string;
+  callsign: string | null;
+  originCountry: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  barometricAltitude: number | null;
+  geometricAltitude: number | null;
+  velocity: number | null;
+  heading: number | null;
+  verticalRate: number | null;
+  onGround: boolean | null;
+  timePosition: number | null;
+  lastContact: number | null;
+  squawk: string | null;
+  spi: boolean | null;
+  positionSource: number | null;
 }
 
 export default function MapView2D({ selectedCountry }: MapView2DProps) {
@@ -34,7 +48,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [warLevel, setWarLevel] = useState(1);
   const [aircraft, setAircraft] = useState<Aircraft[]>([]);
   const [enemyCountries, setEnemyCountries] = useState<string[]>([]);
+  const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
+  const [isAircraftLoading, setIsAircraftLoading] = useState(false);
 
+  // Load country data
   useEffect(() => {
     fetch('/countries.json')
       .then(response => response.json())
@@ -48,16 +65,58 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         console.error('Error loading country data:', error);
         setIsLoading(false);
       });
-
-    fetch('/aircraft-positions.json')
-      .then(response => response.json())
-      .then((data: { aircraft: Aircraft[] }) => {
-        setAircraft(data.aircraft);
-      })
-      .catch(error => {
-        console.error('Error loading aircraft data:', error);
-      });
   }, []);
+
+  // Fetch aircraft data when a country is selected
+  useEffect(() => {
+    if (!selectedCountry || countries.length === 0) {
+      setAircraft([]);
+      return;
+    }
+
+    // Find the selected country's geometry
+    const country = countries.find(c => c.properties.name === selectedCountry);
+    if (!country) {
+      console.warn(`Country not found: ${selectedCountry}`);
+      setAircraft([]);
+      return;
+    }
+
+    // Calculate bounding box for the country
+    try {
+      const bbox = calculateBoundingBox(country.geometry as any);
+      const apiUrl = buildAircraftApiUrl(bbox);
+      
+      console.log(`Fetching aircraft for ${selectedCountry}:`, bbox);
+      setIsAircraftLoading(true);
+      
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then((data: { success: boolean; data: Aircraft[]; count: number; error?: string }) => {
+          setIsAircraftLoading(false);
+          if (data.success && data.data) {
+            // Filter out aircraft without valid coordinates
+            const validAircraft = data.data.filter(
+              a => a.latitude !== null && a.longitude !== null
+            );
+            console.log(`Loaded ${validAircraft.length} valid aircraft for ${selectedCountry}`);
+            setAircraft(validAircraft);
+          } else {
+            console.error('Failed to load aircraft:', data.error || 'Unknown error');
+            setAircraft([]);
+          }
+        })
+        .catch(error => {
+          console.error('Error loading aircraft data:', error);
+          setIsAircraftLoading(false);
+          setAircraft([]);
+        });
+    } catch (error) {
+      console.error('Error calculating bounding box:', error);
+      setIsAircraftLoading(false);
+      setAircraft([]);
+    }
+  }, [selectedCountry, countries]);
 
   // Select random enemy countries based on war level
   useEffect(() => {
@@ -229,10 +288,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             <linearGradient id="navalGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#0088ff" stopOpacity="0.6" />
               <stop offset="100%" stopColor="#0044aa" stopOpacity="0.9" />
-            </linearGradient>
-            <linearGradient id="radarGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
-              <stop offset="100%" stopColor="#00ff00" stopOpacity="0.6" />
             </linearGradient>
           </defs>
           
@@ -489,131 +544,20 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })}
           
-          {/* Circular radar display around selected country */}
-          {selectedCountry && countryCentroids[selectedCountry] && (() => {
-            const [cx, cy] = projectToSVG(countryCentroids[selectedCountry][0], countryCentroids[selectedCountry][1], viewBoxWidth, viewBoxHeight);
-            const radarRadius = 60;
-            const rings = 6;
-            const degrees = [0, 45, 90, 135, 180, 225, 270, 315];
-            
-            return (
-              <g>
-                {/* Dark green transparent background */}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={radarRadius + 5}
-                  fill="rgba(0, 50, 0, 0.4)"
-                  opacity="0.8"
-                  style={{ filter: "blur(2px)" }}
-                />
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={radarRadius}
-                  fill="rgba(0, 30, 0, 0.6)"
-                  opacity="0.9"
-                />
-                
-                {/* Concentric rings */}
-                {Array.from({ length: rings }).map((_, i) => {
-                  const r = ((i + 1) / rings) * radarRadius;
-                  return (
-                    <circle
-                      key={`ring-${i}`}
-                      cx={cx}
-                      cy={cy}
-                      r={r}
-                      fill="none"
-                      stroke="#00ff00"
-                      strokeWidth="0.3"
-                      opacity="0.25"
-                    />
-                  );
-                })}
-                
-                {/* Grid lines (radials) */}
-                {degrees.map((deg) => {
-                  const rad = (deg * Math.PI) / 180;
-                  const x2 = cx + Math.sin(rad) * radarRadius;
-                  const y2 = cy - Math.cos(rad) * radarRadius;
-                  return (
-                    <line
-                      key={`radial-${deg}`}
-                      x1={cx}
-                      y1={cy}
-                      x2={x2}
-                      y2={y2}
-                      stroke="#00ff00"
-                      strokeWidth="0.3"
-                      opacity="0.25"
-                    />
-                  );
-                })}
-                
-                {/* Outer circle with glow */}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={radarRadius}
-                  fill="none"
-                  stroke="#00ff00"
-                  strokeWidth="1.5"
-                  opacity="0.7"
-                  style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
-                />
-                
-                {/* Enhanced rotating sweep with fade trail */}
-                <defs>
-                  <radialGradient id="sweepTrailGradient">
-                    <stop offset="0%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.3 + warLevel * 0.15} />
-                    <stop offset="30%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.2 + warLevel * 0.1} />
-                    <stop offset="60%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity={0.1 + warLevel * 0.05} />
-                    <stop offset="100%" stopColor={warLevel >= 3 ? "#ff0000" : "#00ff00"} stopOpacity="0" />
-                  </radialGradient>
-                </defs>
-                
-                {/* Single rotating sweep line */}
-                <line
-                  x1={cx}
-                  y1={cy}
-                  x2={cx}
-                  y2={cy - radarRadius}
-                  stroke="#00ff00"
-                  strokeWidth="2"
-                  opacity="0.9"
-                  style={{ filter: "drop-shadow(0 0 8px #00ff00)" }}
-                >
-                  <animateTransform
-                    attributeName="transform"
-                    type="rotate"
-                    from={`0 ${cx} ${cy}`}
-                    to={`360 ${cx} ${cy}`}
-                    dur="3s"
-                    repeatCount="indefinite"
-                  />
-                </line>
-                
-                {/* Center dot */}
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r="3"
-                  fill="#00ff00"
-                  opacity="1"
-                  style={{ filter: "drop-shadow(0 0 4px #00ff00)" }}
-                />
-              </g>
-            );
-          })()}
-          
           {/* Aircraft positions with war-level based styling */}
           {aircraft.map((plane) => {
+            if (plane.latitude === null || plane.longitude === null) return null;
+            
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
             const pulseSize = 6 + warLevel * 2;
             const coreSize = 3 + warLevel * 0.5;
             return (
-              <g key={plane.id} transform={`translate(${x}, ${y})`}>
+              <g 
+                key={plane.icao24} 
+                transform={`translate(${x}, ${y})`}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setSelectedAircraft(plane)}
+              >
                 <circle 
                   cx="0" 
                   cy="0" 
@@ -675,6 +619,99 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Aircraft details modal */}
+      <Dialog open={selectedAircraft !== null} onOpenChange={(open) => !open && setSelectedAircraft(null)}>
+        <DialogContent className="bg-card/95 border-2 border-primary max-w-md backdrop-blur-sm">
+          <DialogHeader>
+            <DialogTitle className="text-primary tracking-wider text-glow">AIRCRAFT INFORMATION</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Real-time flight tracking data
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAircraft && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">ICAO24</p>
+                  <p className="text-primary font-mono">{selectedAircraft.icao24}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Callsign</p>
+                  <p className="text-primary font-mono">{selectedAircraft.callsign || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Origin Country</p>
+                  <p className="text-primary">{selectedAircraft.originCountry || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <p className="text-primary">{selectedAircraft.onGround ? 'On Ground' : 'In Flight'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Latitude</p>
+                  <p className="text-primary font-mono">{selectedAircraft.latitude?.toFixed(4) || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Longitude</p>
+                  <p className="text-primary font-mono">{selectedAircraft.longitude?.toFixed(4) || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Barometric Altitude</p>
+                  <p className="text-primary font-mono">
+                    {selectedAircraft.barometricAltitude ? `${Math.round(selectedAircraft.barometricAltitude)}m` : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Geometric Altitude</p>
+                  <p className="text-primary font-mono">
+                    {selectedAircraft.geometricAltitude ? `${Math.round(selectedAircraft.geometricAltitude)}m` : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Velocity</p>
+                  <p className="text-primary font-mono">
+                    {selectedAircraft.velocity ? `${Math.round(selectedAircraft.velocity * 3.6)} km/h` : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Heading</p>
+                  <p className="text-primary font-mono">
+                    {selectedAircraft.heading ? `${Math.round(selectedAircraft.heading)}°` : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Vertical Rate</p>
+                  <p className="text-primary font-mono">
+                    {selectedAircraft.verticalRate 
+                      ? `${selectedAircraft.verticalRate > 0 ? '+' : ''}${Math.round(selectedAircraft.verticalRate)} m/s` 
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Squawk</p>
+                  <p className="text-primary font-mono">{selectedAircraft.squawk || 'N/A'}</p>
+                </div>
+              </div>
+              {selectedAircraft.lastContact && (
+                <div className="pt-2 border-t border-primary/20">
+                  <p className="text-xs text-muted-foreground">Last Contact</p>
+                  <p className="text-primary text-xs">
+                    {new Date(selectedAircraft.lastContact * 1000).toLocaleString()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Loading indicator for aircraft */}
+      {isAircraftLoading && (
+        <div className="absolute bottom-20 right-8 bg-card/95 border-2 border-primary px-4 py-2 z-20 animate-scale-in">
+          <p className="text-xs text-primary tracking-wider text-glow">LOADING AIRCRAFT DATA...</p>
+        </div>
+      )}
       
       {/* Red glow at edges */}
       <div className="absolute inset-0 pointer-events-none">
