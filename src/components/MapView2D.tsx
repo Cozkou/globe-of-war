@@ -1583,7 +1583,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               value={sensitivity}
               onValueChange={setSensitivity}
               max={1}
-              step={0.01}
+              step={0.05}
               className="cursor-pointer"
             />
           </div>
