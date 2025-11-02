@@ -53,6 +53,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [sensitivity, setSensitivity] = useState([0]); // Slider value 0-1
   const [showConflicts, setShowConflicts] = useState(false);
   const [visibleConflictCount, setVisibleConflictCount] = useState(0);
+  const [randomConflicts, setRandomConflicts] = useState<Array<[string, string]>>([]);
 
   // Load country data
   useEffect(() => {
@@ -182,6 +183,23 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     
     const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
     setEnemyCountries(shuffled.slice(0, numEnemies));
+    
+    // At higher sensitivity (>0.5), add random country-to-country conflicts
+    if (sensitivityValue > 0.5) {
+      const numRandomConflicts = Math.floor((sensitivityValue - 0.5) * totalAvailable * 0.5);
+      const randomPairs: Array<[string, string]> = [];
+      
+      for (let i = 0; i < numRandomConflicts && i < 50; i++) { // Cap at 50 for performance
+        const country1 = availableCountries[Math.floor(Math.random() * availableCountries.length)];
+        const country2 = availableCountries[Math.floor(Math.random() * availableCountries.length)];
+        if (country1 !== country2) {
+          randomPairs.push([country1, country2]);
+        }
+      }
+      setRandomConflicts(randomPairs);
+    } else {
+      setRandomConflicts([]);
+    }
   }, [sensitivity, countries, selectedCountry]);
 
   // Calculate country centroids for beam targeting
@@ -442,53 +460,32 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </>
                 )}
                 
-                {/* Level 3+: Explosion effects at target */}
+                {/* Level 3+: Simplified explosion effects at target */}
                 {warLevel >= 3 && (
                   <g>
-                    {/* Multiple explosion rings */}
-                    {[0, 1, 2].map((ringIdx) => (
-                      <circle
-                        key={`explosion-ring-${ringIdx}`}
-                        cx={x2}
-                        cy={y2}
-                        r="0"
-                        fill="none"
-                        stroke={warLevel >= 5 ? "#ff0000" : "#ff6600"}
-                        strokeWidth={warLevel >= 4 ? "3" : "2"}
-                        opacity="0"
-                      >
-                        <animate
-                          attributeName="r"
-                          from="5"
-                          to={warLevel >= 5 ? "40" : "25"}
-                          dur="1.5s"
-                          begin={`${explosionStart + ringIdx * 0.2}s`}
-                          repeatCount="indefinite"
-                        />
-                        <animate
-                          attributeName="opacity"
-                          from="0.9"
-                          to="0"
-                          dur="1.5s"
-                          begin={`${explosionStart + ringIdx * 0.2}s`}
-                          repeatCount="indefinite"
-                        />
-                      </circle>
-                    ))}
-                    
-                    {/* Core explosion flash */}
+                    {/* Single explosion ring - reduced for performance */}
                     <circle
                       cx={x2}
                       cy={y2}
-                      r={warLevel >= 5 ? "12" : "8"}
-                      fill={warLevel >= 5 ? "#ff0000" : "#ff8800"}
+                      r="0"
+                      fill="none"
+                      stroke={warLevel >= 5 ? "#ff0000" : "#ff6600"}
+                      strokeWidth="2"
                       opacity="0"
-                      style={{ filter: `blur(${warLevel}px)` }}
                     >
                       <animate
+                        attributeName="r"
+                        from="5"
+                        to="25"
+                        dur="1.5s"
+                        begin={`${explosionStart}s`}
+                        repeatCount="indefinite"
+                      />
+                      <animate
                         attributeName="opacity"
-                        values="0;1;0"
-                        dur="0.3s"
+                        from="0.7"
+                        to="0"
+                        dur="1.5s"
                         begin={`${explosionStart}s`}
                         repeatCount="indefinite"
                       />
@@ -496,50 +493,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </g>
                 )}
                 
-                {/* Level 4+: Debris particles */}
-                {warLevel >= 4 && (
-                  <g>
-                    {Array.from({ length: 8 }).map((_, particleIdx) => {
-                      const angle = (particleIdx / 8) * Math.PI * 2;
-                      const distance = 20 + warLevel * 3;
-                      const px = x2 + Math.cos(angle) * distance;
-                      const py = y2 + Math.sin(angle) * distance;
-                      
-                      return (
-                        <circle
-                          key={`particle-${particleIdx}`}
-                          r="2"
-                          fill="#ff6600"
-                          opacity="0"
-                        >
-                          <animate
-                            attributeName="cx"
-                            from={x2}
-                            to={px}
-                            dur="1s"
-                            begin={`${explosionStart}s`}
-                            repeatCount="indefinite"
-                          />
-                          <animate
-                            attributeName="cy"
-                            from={y2}
-                            to={py}
-                            dur="1s"
-                            begin={`${explosionStart}s`}
-                            repeatCount="indefinite"
-                          />
-                          <animate
-                            attributeName="opacity"
-                            values="0;0.8;0"
-                            dur="1s"
-                            begin={`${explosionStart}s`}
-                            repeatCount="indefinite"
-                          />
-                        </circle>
-                      );
-                    })}
-                  </g>
-                )}
                 
                 {/* Level 5: Counter-attack missiles from enemy - now shows at high sensitivity */}
                 {sensitivity[0] >= 0.5 && (
@@ -597,17 +550,45 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </>
                 )}
                 
-                {/* Enemy country highlight */}
+                {/* Enemy country highlight - simplified */}
                 <circle
                   cx={x2}
                   cy={y2}
-                  r="6"
-                  fill="none"
-                  stroke="#ff0000"
-                  strokeWidth="2"
-                  opacity={warLevel >= 3 ? 0.8 : 0.5}
-                  className="animate-pulse"
+                  r="4"
+                  fill="#ff0000"
+                  opacity={warLevel >= 3 ? 0.6 : 0.4}
                 />
+              </g>
+            );
+          })}
+          
+          {/* Random country-to-country conflicts at higher sensitivity */}
+          {showConflicts && randomConflicts.map(([country1, country2], idx) => {
+            if (!countryCentroids[country1] || !countryCentroids[country2]) return null;
+            
+            const [x1, y1] = projectToSVG(countryCentroids[country1][0], countryCentroids[country1][1], viewBoxWidth, viewBoxHeight);
+            const [x2, y2] = projectToSVG(countryCentroids[country2][0], countryCentroids[country2][1], viewBoxWidth, viewBoxHeight);
+            
+            return (
+              <g key={`random-conflict-${idx}`} className="animate-fade-in">
+                <line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#ff6600"
+                  strokeWidth="0.8"
+                  strokeDasharray="4,4"
+                  opacity="0.4"
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="0"
+                    to="100"
+                    dur="3s"
+                    repeatCount="indefinite"
+                  />
+                </line>
               </g>
             );
           })}
@@ -631,11 +612,9 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   cy="0" 
                   r={pulseSize} 
                   fill={warLevel >= 4 ? "#ff0000" : "#ff3333"} 
-                  opacity={0.2 + warLevel * 0.1} 
-                  className="animate-pulse" 
-                  style={{ filter: warLevel >= 3 ? `drop-shadow(0 0 ${warLevel * 2}px #ff0000)` : undefined }}
+                  opacity={0.2 + warLevel * 0.05} 
                 />
-                <circle cx="0" cy="0" r={coreSize} fill="#ff3333" opacity={0.7 + warLevel * 0.05} />
+                <circle cx="0" cy="0" r={coreSize} fill="#ff3333" opacity={0.6} />
                 <foreignObject x="-10" y="-10" width="20" height="20">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Plane 
@@ -811,7 +790,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               {sensitivity[0].toFixed(2)}
             </p>
             <p className="text-primary font-mono">
-              {enemyCountries.length} {enemyCountries.length === 1 ? 'TARGET' : 'TARGETS'}
+              {enemyCountries.length + randomConflicts.length} {(enemyCountries.length + randomConflicts.length) === 1 ? 'CONFLICT' : 'CONFLICTS'}
             </p>
           </div>
         </div>
