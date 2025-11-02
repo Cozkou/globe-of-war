@@ -167,8 +167,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     if (!timerStarted || isExploding) return;
 
     // Calculate countdown speed: higher sensitivity = faster countdown
-    // At 0 sensitivity: 1x speed, at 1.0 sensitivity: 10x speed
-    const speedMultiplier = 1 + (sensitivity[0] * 9);
+    // At 0 sensitivity: 1x speed, at max (1.0) sensitivity: 50x speed
+    const speedMultiplier = 1 + (sensitivity[0] * 49);
     const intervalTime = 1000 / speedMultiplier;
 
     const timer = setInterval(() => {
@@ -189,13 +189,18 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     if (!isExploding) return;
 
     const rays: Array<{ angle: number; id: number }> = [];
-    for (let i = 0; i < 50; i++) {
+    for (let i = 0; i < 200; i++) {
       rays.push({
-        angle: (360 / 50) * i,
+        angle: (360 / 200) * i,
         id: Date.now() + i
       });
     }
     setExplosionRays(rays);
+
+    // Redirect to landing page after explosion
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 3000);
   }, [isExploding]);
 
   // Generate fake error messages when sensitivity > 0.75
@@ -473,21 +478,23 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
 
       {/* Explosion effect */}
       {isExploding && (
-        <div className="absolute inset-0 z-40 pointer-events-none">
-          {explosionRays.map((ray) => (
+        <div className="absolute inset-0 z-50 pointer-events-none bg-black">
+          {explosionRays.map((ray, index) => (
             <div
               key={ray.id}
               className="absolute top-1/2 left-1/2 origin-left"
               style={{
                 transform: `rotate(${ray.angle}deg)`,
-                animation: 'explosionRay 2s ease-out forwards'
+                animation: `explosionRay 3s ease-out forwards`,
+                animationDelay: `${index * 0.005}s`
               }}
             >
               <div
-                className="h-2 bg-gradient-to-r from-red-500 to-transparent"
+                className="h-1 bg-gradient-to-r from-red-500 via-red-600 to-transparent"
                 style={{
-                  width: '2000px',
-                  boxShadow: '0 0 20px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.6)'
+                  width: '3000px',
+                  boxShadow: '0 0 30px rgba(255, 0, 0, 1), 0 0 60px rgba(255, 0, 0, 0.8)',
+                  filter: 'blur(2px)'
                 }}
               />
             </div>
@@ -497,14 +504,35 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               @keyframes explosionRay {
                 0% {
                   opacity: 0;
-                  transform: rotate(${0}deg) scale(0);
+                  transform: rotate(${0}deg) scale(0) translateX(-50%);
                 }
-                50% {
+                30% {
                   opacity: 1;
                 }
                 100% {
+                  opacity: 1;
+                  transform: rotate(${0}deg) scale(3) translateX(0%);
+                }
+              }
+            `}
+          </style>
+          {/* Full red overlay at the end */}
+          <div 
+            className="absolute inset-0 bg-red-600"
+            style={{
+              animation: 'fadeInRed 3s ease-out forwards',
+              animationDelay: '1.5s',
+              opacity: 0
+            }}
+          />
+          <style>
+            {`
+              @keyframes fadeInRed {
+                0% {
                   opacity: 0;
-                  transform: rotate(${0}deg) scale(1.5);
+                }
+                100% {
+                  opacity: 1;
                 }
               }
             `}
@@ -527,7 +555,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             maxHeight: '100%', 
             maxWidth: '100%',
             animation: sensitivity[0] > 0.75
-              ? `mapShake ${Math.max(0.1, 0.8 - (visibleConflictCount / 100))}s infinite` 
+              ? `mapShake ${Math.max(0.05, 0.8 - (visibleConflictCount / 100) - (1 - (timeRemaining / 600)) * 0.5)}s infinite` 
               : 'none'
           }}
         >
@@ -535,15 +563,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             {`
               @keyframes mapShake {
                 0%, 100% { transform: translate(0, 0) rotate(0deg); }
-                10% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                20% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                30% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                40% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                50% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(0deg); }
-                60% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                70% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                80% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
-                90% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                10% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                20% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                30% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                40% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                50% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(0deg); }
+                60% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                70% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, -${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                80% { transform: translate(${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(-${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
+                90% { transform: translate(-${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px, ${Math.min(visibleConflictCount / 10 + (1 - timeRemaining / 600) * 10, 10)}px) rotate(${Math.min(visibleConflictCount / 50 + (1 - timeRemaining / 600) * 2, 2)}deg); }
               }
             `}
           </style>
@@ -1020,7 +1048,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-4 left-4 bg-card/95 border-2 border-primary hover:bg-primary/20 hover:border-war-glow transition-all z-20 animate-scale-in"
+            className="absolute bottom-4 right-4 bg-card/95 border-2 border-primary hover:bg-primary/20 hover:border-war-glow transition-all z-20 animate-scale-in"
           >
             <HelpCircle className="h-5 w-5 text-primary" />
           </Button>

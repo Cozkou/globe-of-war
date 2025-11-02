@@ -40,11 +40,11 @@ const Index = () => {
       {showGlobe && (
         <Dialog>
           <DialogTrigger asChild>
-            <button className="fixed top-4 left-4 z-50 w-10 h-10 rounded-full bg-primary/20 hover:bg-primary/30 flex items-center justify-center transition-colors">
+            <button className="fixed bottom-4 right-4 z-50 bg-card/95 border-2 border-primary hover:bg-primary/20 hover:border-war-glow transition-all w-10 h-10 rounded flex items-center justify-center animate-scale-in">
               <HelpCircle className="w-5 h-5 text-primary" />
             </button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-2 border-primary max-w-md">
+          <DialogContent className="bg-card/95 border-2 border-primary max-w-md backdrop-blur-sm">
             <DialogHeader>
               <DialogTitle className="text-primary text-sm tracking-wider">ABOUT SKYTRACK</DialogTitle>
               <DialogDescription className="text-muted-foreground text-xs leading-relaxed pt-2">
