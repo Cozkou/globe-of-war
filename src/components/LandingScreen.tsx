@@ -204,23 +204,12 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         style={{ height: '100vh' }}
       >
         <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
-          <color attach="background" args={['transparent']} />
+          <color attach="background" args={['#000000']} />
           
-          {/* Starfield background */}
-          <Stars 
-            radius={100} 
-            depth={50} 
-            count={3000} 
-            factor={4} 
-            saturation={0} 
-            fade 
-            speed={0.3}
-          />
-          
-          <ambientLight intensity={0.5} />
-          <pointLight position={[10, 10, 10]} intensity={2} color="#ff0000" />
-          <pointLight position={[-10, -10, -10]} intensity={1} color="#ff3333" />
-          <directionalLight position={[5, 5, 5]} intensity={1.5} color="#ff4444" />
+          <ambientLight intensity={0.3} />
+          <pointLight position={[10, 10, 10]} intensity={1} color="#ff0000" />
+          <pointLight position={[-10, -10, -10]} intensity={0.5} color="#ff3333" />
+          <directionalLight position={[5, 5, 5]} intensity={0.8} color="#ff4444" />
           
           <BackgroundGlobe />
         </Canvas>
