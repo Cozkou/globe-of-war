@@ -50,6 +50,9 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
   const [enemyCountries, setEnemyCountries] = useState<string[]>([]);
   const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
   const [isAircraftLoading, setIsAircraftLoading] = useState(false);
+  const [warIntensity, setWarIntensity] = useState(0); // 0-10 cycling value
+  const [isHolding, setIsHolding] = useState(false);
+  const [intensityDirection, setIntensityDirection] = useState(1); // 1 for up, -1 for down
 
   // Load country data
   useEffect(() => {
@@ -117,6 +120,42 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       setAircraft([]);
     }
   }, [selectedCountry, countries]);
+
+  // Update war intensity while holding
+  useEffect(() => {
+    if (!isHolding) return;
+    
+    let animationFrame: number;
+    
+    const updateIntensity = () => {
+      setWarIntensity(prev => {
+        let next = prev + intensityDirection * 0.1; // Increase/decrease by 0.1
+        
+        // Reverse direction at boundaries
+        if (next >= 10) {
+          next = 10;
+          setIntensityDirection(-1);
+        } else if (next <= 0) {
+          next = 0;
+          setIntensityDirection(1);
+        }
+        
+        return next;
+      });
+      
+      animationFrame = requestAnimationFrame(updateIntensity);
+    };
+    
+    animationFrame = requestAnimationFrame(updateIntensity);
+    
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isHolding, intensityDirection]);
+
+  // Map intensity to war level (1-5)
+  useEffect(() => {
+    const level = Math.min(5, Math.max(1, Math.ceil(warIntensity / 2)));
+    setWarLevel(level);
+  }, [warIntensity]);
 
   // Select random enemy countries based on war level
   useEffect(() => {
@@ -721,37 +760,43 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute top-0 bottom-0 right-0 w-24 bg-gradient-to-l from-war-blood/10 to-transparent" />
       </div>
 
-      {/* War Intensity Level Buttons */}
+      {/* War Intensity Hold Button */}
       <div className="absolute bottom-8 right-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in">
         <div className="space-y-3">
           <div className="flex items-center gap-2 mb-4">
             <div 
               className="w-2 h-2 rounded-full animate-pulse" 
-              style={{ backgroundColor: warLevel >= 4 ? '#ff0000' : '#00ff00' }}
+              style={{ 
+                backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)` 
+              }}
             />
             <p 
               className="text-xs tracking-wider font-mono"
-              style={{ color: warLevel >= 4 ? '#ff0000' : '#00ff00' }}
+              style={{ 
+                color: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)` 
+              }}
             >
-              WAR INTENSITY: LEVEL {warLevel}
+              WAR INTENSITY: {warIntensity.toFixed(1)} / 10
             </p>
           </div>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((level) => (
-              <Button
-                key={level}
-                onClick={() => setWarLevel(level)}
-                className={`w-12 h-12 text-xs font-mono border-2 transition-all ${
-                  warLevel === level
-                    ? level >= 4 
-                      ? 'bg-[#ff0000] border-[#ff0000] text-white shadow-[0_0_20px_rgba(255,0,0,0.8)]' 
-                      : 'bg-[#00ff00] border-[#00ff00] text-black shadow-[0_0_20px_rgba(0,255,0,0.8)]'
-                    : 'bg-card border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary'
-                }`}
-              >
-                {level}
-              </Button>
-            ))}
+          <Button
+            onMouseDown={() => setIsHolding(true)}
+            onMouseUp={() => setIsHolding(false)}
+            onMouseLeave={() => setIsHolding(false)}
+            onTouchStart={() => setIsHolding(true)}
+            onTouchEnd={() => setIsHolding(false)}
+            className="w-full h-20 text-sm font-mono border-2 transition-all select-none"
+            style={{
+              backgroundColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%)`,
+              borderColor: `hsl(${120 - (warIntensity / 10) * 120}, 100%, 40%)`,
+              color: warIntensity > 5 ? '#ffffff' : '#000000',
+              boxShadow: `0 0 ${10 + warIntensity * 2}px hsl(${120 - (warIntensity / 10) * 120}, 100%, 50%, 0.6)`,
+            }}
+          >
+            {isHolding ? 'CHARGING...' : 'HOLD TO CHARGE'}
+          </Button>
+          <div className="text-xs text-center text-muted-foreground font-mono">
+            LEVEL {warLevel} / 5
           </div>
         </div>
       </div>
