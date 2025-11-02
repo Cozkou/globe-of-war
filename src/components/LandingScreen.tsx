@@ -1,8 +1,128 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Button } from './ui/button';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Sphere, Stars, Line } from '@react-three/drei';
+import * as THREE from 'three';
+import { feature } from 'topojson-client';
 
 interface LandingScreenProps {
   onStart: () => void;
+}
+
+// Helper functions for globe rendering
+function latLngToVector3(lat: number, lng: number, radius: number) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lng + 180) * (Math.PI / 180);
+  
+  const x = -(radius * Math.sin(phi) * Math.cos(theta));
+  const y = radius * Math.cos(phi);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+  
+  return new THREE.Vector3(x, y, z);
+}
+
+function convertCoordinatesToVectors(coordinates: number[][], radius: number): THREE.Vector3[] {
+  return coordinates.map(([lng, lat]) => {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+    return latLngToVector3(lat, lng, radius);
+  }).filter((v): v is THREE.Vector3 => v !== null);
+}
+
+// Simplified globe for background
+function BackgroundGlobe() {
+  const globeRef = useRef<THREE.Mesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const [countries, setCountries] = useState<any[]>([]);
+  const radius = 2;
+  
+  useFrame(() => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += 0.002;
+    }
+  });
+
+  useEffect(() => {
+    fetch('/countries.json')
+      .then(response => response.json())
+      .then((topology: any) => {
+        const countriesObject = topology.objects.countries;
+        const geojson: any = feature(topology, countriesObject);
+        setCountries(geojson.features);
+      })
+      .catch(error => console.error('Error loading country data:', error));
+  }, []);
+
+  // Render country borders
+  const countryLines = useMemo(() => {
+    return countries.flatMap((country, countryIndex) => {
+      const { geometry } = country;
+      const lines: JSX.Element[] = [];
+      
+      const processCoordinates = (coords: number[][], index: number) => {
+        const points = convertCoordinatesToVectors(coords, radius + 0.002);
+        if (points.length > 1) {
+          lines.push(
+            <Line
+              key={`${countryIndex}-${index}`}
+              points={points}
+              color="#ff3333"
+              lineWidth={2}
+              transparent
+              opacity={0.7}
+            />
+          );
+        }
+      };
+      
+      if (geometry.type === 'Polygon') {
+        geometry.coordinates.forEach((ring: number[][], i: number) => processCoordinates(ring, i));
+      } else if (geometry.type === 'MultiPolygon') {
+        geometry.coordinates.forEach((polygon: number[][][], i: number) => {
+          polygon.forEach((ring: number[][], j: number) => processCoordinates(ring, i * 1000 + j));
+        });
+      }
+      
+      return lines;
+    });
+  }, [countries]);
+
+  return (
+    <group ref={groupRef}>
+      {/* Globe sphere */}
+      <Sphere ref={globeRef} args={[radius, 64, 64]}>
+        <meshStandardMaterial
+          color="#0a2040"
+          roughness={0.6}
+          metalness={0.3}
+          emissive="#051a35"
+          emissiveIntensity={0.6}
+        />
+      </Sphere>
+      
+      {/* Blue glow effect */}
+      <Sphere args={[radius + 0.02, 64, 64]}>
+        <meshBasicMaterial
+          color="#1a4080"
+          transparent
+          opacity={0.4}
+          side={THREE.BackSide}
+        />
+      </Sphere>
+      
+      {/* Country borders */}
+      {countryLines}
+      
+      {/* Grid overlay */}
+      <Sphere args={[radius + 0.001, 32, 32]}>
+        <meshBasicMaterial
+          color="#ff3333"
+          wireframe
+          transparent
+          opacity={0.15}
+        />
+      </Sphere>
+    </group>
+  );
 }
 
 export default function LandingScreen({ onStart }: LandingScreenProps) {
@@ -62,60 +182,32 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
         </div>
       </div>
 
-      {/* Large spinning globe at bottom */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 pointer-events-none overflow-hidden w-full flex justify-center">
-        <div 
-          className="relative"
-          style={{
-            width: '1200px',
-            height: '600px',
-            transform: 'translateY(50%)'
-          }}
-        >
-          {/* Main globe sphere */}
-          <div 
-            className="absolute inset-0 rounded-full"
-            style={{
-              background: 'radial-gradient(circle at 30% 30%, rgba(255, 80, 80, 0.4), rgba(180, 20, 20, 0.6), rgba(100, 10, 10, 0.8))',
-              animation: 'globeSpin 30s linear infinite',
-              boxShadow: '0 0 100px rgba(255, 0, 0, 0.5), inset 0 0 100px rgba(0, 0, 0, 0.5)'
-            }}
+      {/* 3D Spinning Globe at bottom */}
+      <div 
+        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-1000 ${isAnimating ? '-translate-y-[200vh]' : ''}`}
+        style={{ height: '100vh', transform: 'translateY(50%)' }}
+      >
+        <Canvas camera={{ position: [0, 0, 4], fov: 45 }}>
+          <color attach="background" args={['transparent']} />
+          
+          {/* Starfield background */}
+          <Stars 
+            radius={100} 
+            depth={50} 
+            count={3000} 
+            factor={4} 
+            saturation={0} 
+            fade 
+            speed={0.3}
           />
           
-          {/* Globe grid overlay */}
-          <div 
-            className="absolute inset-0 rounded-full opacity-40"
-            style={{
-              backgroundImage: `
-                repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255, 51, 51, 0.3) 49px, rgba(255, 51, 51, 0.3) 50px),
-                repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(255, 51, 51, 0.3) 49px, rgba(255, 51, 51, 0.3) 50px)
-              `,
-              animation: 'globeSpin 30s linear infinite'
-            }}
-          />
+          <ambientLight intensity={0.5} />
+          <pointLight position={[10, 10, 10]} intensity={2} color="#ff0000" />
+          <pointLight position={[-10, -10, -10]} intensity={1} color="#ff3333" />
+          <directionalLight position={[5, 5, 5]} intensity={1.5} color="#ff4444" />
           
-          {/* Meridian lines (vertical curves) */}
-          <div 
-            className="absolute inset-0 rounded-full opacity-30"
-            style={{
-              background: `
-                radial-gradient(ellipse 100% 100% at 30% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%),
-                radial-gradient(ellipse 100% 100% at 50% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%),
-                radial-gradient(ellipse 100% 100% at 70% 50%, transparent 49%, rgba(255, 51, 51, 0.4) 49%, rgba(255, 51, 51, 0.4) 51%, transparent 51%)
-              `,
-              animation: 'globeSpin 30s linear infinite'
-            }}
-          />
-          
-          {/* Glow effect */}
-          <div 
-            className="absolute inset-0 rounded-full"
-            style={{
-              background: 'radial-gradient(circle at center, transparent 60%, rgba(255, 0, 0, 0.3) 100%)',
-              filter: 'blur(20px)'
-            }}
-          />
-        </div>
+          <BackgroundGlobe />
+        </Canvas>
       </div>
       
       {/* CRT scanlines effect */}
