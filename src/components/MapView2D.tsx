@@ -623,13 +623,11 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })}
           
-          {/* Aircraft positions with war-level based styling */}
+          {/* Aircraft positions with minimal styling */}
           {aircraft.map((plane) => {
             if (plane.latitude === null || plane.longitude === null) return null;
             
             const [x, y] = projectToSVG(plane.longitude, plane.latitude, viewBoxWidth, viewBoxHeight);
-            const pulseSize = 6 + warLevel * 2;
-            const coreSize = 3 + warLevel * 0.5;
             return (
               <g 
                 key={plane.icao24} 
@@ -637,21 +635,13 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedAircraft(plane)}
               >
-                <circle 
-                  cx="0" 
-                  cy="0" 
-                  r={pulseSize} 
-                  fill={warLevel >= 4 ? "#ff0000" : "#ff3333"} 
-                  opacity={0.2 + warLevel * 0.05} 
-                />
-                <circle cx="0" cy="0" r={coreSize} fill="#ff3333" opacity={0.6} />
-                <foreignObject x="-10" y="-10" width="20" height="20">
+                <circle cx="0" cy="0" r="2" fill="#ff3333" opacity={0.6} />
+                <foreignObject x="-8" y="-8" width="16" height="16">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Plane 
-                      size={12 + warLevel * 2} 
+                      size={10} 
                       color="#ffffff" 
-                      fill={warLevel >= 4 ? "#ff0000" : "#ff3333"}
-                      style={{ filter: warLevel >= 4 ? 'drop-shadow(0 0 4px #ff0000)' : undefined }}
+                      fill="#ff3333"
                     />
                   </div>
                 </foreignObject>
@@ -659,6 +649,38 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })}
         </svg>
+      </div>
+
+      {/* Screen shake effect based on sensitivity */}
+      <div 
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          animation: sensitivity[0] > 0.5 
+            ? `shake ${Math.max(0.1, 1 - sensitivity[0])}s infinite` 
+            : 'none'
+        }}
+      >
+        <style>
+          {`
+            @keyframes shake {
+              0%, 100% { transform: translate(0, 0); }
+              10% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+              20% { transform: translate(${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
+              30% { transform: translate(-${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
+              40% { transform: translate(${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+              50% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+              60% { transform: translate(${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
+              70% { transform: translate(-${sensitivity[0] * 2}px, -${sensitivity[0] * 2}px); }
+              80% { transform: translate(${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+              90% { transform: translate(-${sensitivity[0] * 2}px, ${sensitivity[0] * 2}px); }
+            }
+          `}
+        </style>
+        <div className="absolute inset-0" style={{
+          background: sensitivity[0] > 0.7 
+            ? `radial-gradient(circle at center, rgba(255, 0, 0, ${(sensitivity[0] - 0.7) * 0.3}) 0%, transparent 70%)`
+            : 'transparent'
+        }} />
       </div>
 
       {/* Country indicator in top-right corner */}
