@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 import { Slider } from './ui/slider';
-import { HelpCircle, Plane } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import { feature } from 'topojson-client';
 import { calculateBoundingBox, buildAircraftApiUrl } from '@/lib/country-bounds';
 
@@ -1621,21 +1621,15 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       dur="3s"
                       repeatCount="indefinite"
                     />
-                    <foreignObject x="-10" y="-10" width="20" height="20">
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        filter: `drop-shadow(0 0 4px ${planeColor})`
-                      }}>
-                        <Plane
-                          size={12}
-                          color="#ffffff"
-                          fill={planeColor}
-                          strokeWidth={2}
-                        />
-                      </div>
-                    </foreignObject>
+                    {/* SVG plane icon pointing right */}
+                    <svg x="-8" y="-8" width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
+                        fill={planeColor}
+                        stroke="#ffffff"
+                        strokeWidth="1"
+                      />
+                    </svg>
                   </g>
                 </g>
 
