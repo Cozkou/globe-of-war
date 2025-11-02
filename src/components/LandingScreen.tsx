@@ -228,11 +228,11 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
           </h1>
           
           <p className="text-xs md:text-sm text-muted-foreground tracking-widest px-4">
-            REAL-TIME GLOBAL AIRCRAFT TRACKING
+            A SIMULATION OF GLOBAL INSTABILITY
           </p>
-          
+
           <p className="text-xs text-muted-foreground/80 max-w-md mx-auto px-6 leading-relaxed mt-4">
-            Experience live air traffic data from around the world. Select any country to view real-time aircraft positions and explore global flight patterns.
+            Witness how adjusting a single sensitive parameter can cascade into international conflicts and global warfare. A simulation exploring the fragility of peace in an interconnected world.
           </p>
         </div>
         
