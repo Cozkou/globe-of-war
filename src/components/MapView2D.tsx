@@ -131,8 +131,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     
     setShowConflicts(true);
-    // More sensitive mapping: even 0.2 sensitivity can show multiple conflicts
-    const numConflicts = Math.min(5, Math.max(1, Math.ceil(intensityValue * 10)));
+    // Exponential scaling: small changes create dramatic differences
+    // 0.1 = 1-2 conflicts, 0.3 = 3-4 conflicts, 0.5+ = 5 conflicts
+    const exponentialScale = Math.pow(intensityValue, 0.4) * 15;
+    const numConflicts = Math.min(5, Math.max(1, Math.ceil(exponentialScale)));
     setVisibleConflictCount(0);
     
     // Gradually show conflicts
@@ -148,11 +150,11 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     return () => clearInterval(interval);
   }, [sensitivity]);
 
-  // Map sensitivity to war level (1-5) - more responsive to small changes
+  // Map sensitivity to war level - extremely responsive to small changes
   useEffect(() => {
-    // Scale exponentially for more dramatic effect at lower values
-    const scaledValue = Math.pow(sensitivity[0], 0.7) * 5;
-    const level = Math.min(5, Math.max(1, Math.ceil(scaledValue)));
+    // Exponential scaling: 0.1 = level 1, 0.2 = level 2, 0.4 = level 3, 0.6 = level 4, 0.8+ = level 5
+    const exponentialScale = Math.pow(sensitivity[0], 0.5) * 7;
+    const level = Math.min(5, Math.max(1, Math.ceil(exponentialScale)));
     setWarLevel(level);
   }, [sensitivity]);
 
