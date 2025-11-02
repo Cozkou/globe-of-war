@@ -62,6 +62,9 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   const [isExploding, setIsExploding] = useState(false);
   const [explosionRays, setExplosionRays] = useState<Array<{ angle: number; id: number }>>([]);
   const [showThreatsDashboard, setShowThreatsDashboard] = useState(false);
+  const [conflictHistory, setConflictHistory] = useState<Array<{ time: number; conflicts: number; threats: number; sensitivity: number }>>([]);
+  const [dashboardCountdown, setDashboardCountdown] = useState(20);
+  const [showTutorial, setShowTutorial] = useState(true);
 
   // Filter aircraft based on sensitivity - show more "dangerous" planes as sensitivity increases
   const visibleAircraft = useMemo(() => {
@@ -207,6 +210,26 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     }
   }, [selectedCountry, countries]);
 
+  // Track conflict history for graphs
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const totalConflicts = enemyCountries.length + chainConflicts.length + randomConflicts.length;
+      setConflictHistory(prev => {
+        const newEntry = {
+          time: Date.now(),
+          conflicts: totalConflicts,
+          threats: visibleAircraft.length,
+          sensitivity: sensitivity[0]
+        };
+        // Keep last 60 entries (10 minutes if updating every 10 seconds)
+        const updated = [...prev, newEntry].slice(-60);
+        return updated;
+      });
+    }, 10000); // Update every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [enemyCountries.length, chainConflicts.length, randomConflicts.length, visibleAircraft.length, sensitivity]);
+
   // Update conflicts when sensitivity changes
   useEffect(() => {
     const intensityValue = sensitivity[0];
@@ -276,13 +299,37 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     }
     setExplosionRays(rays);
 
-    // Call game over after explosion animation
+    // Open dashboard after game over text appears (4 seconds into explosion)
     setTimeout(() => {
+      setShowThreatsDashboard(true);
+      setDashboardCountdown(20);
+    }, 4000);
+
+    // Auto-close dashboard and call game over after 20 seconds
+    setTimeout(() => {
+      setShowThreatsDashboard(false);
       if (onGameOver) {
         onGameOver();
       }
-    }, 6000);
+    }, 24000); // 4 seconds wait + 20 seconds dashboard open
   }, [isExploding, onGameOver]);
+
+  // Countdown timer for dashboard auto-close during game over
+  useEffect(() => {
+    if (!showThreatsDashboard || !isExploding) return;
+
+    const interval = setInterval(() => {
+      setDashboardCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showThreatsDashboard, isExploding]);
 
   // Generate fake error messages when sensitivity > 0.75
   useEffect(() => {
@@ -738,100 +785,6 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
           
-          {/* Spinning radar on selected country */}
-          {selectedCountry && countryCentroids[selectedCountry] && !isExploding && (
-            <g style={{ position: 'relative', zIndex: 9999 }}>
-              {(() => {
-                const [cx, cy] = projectToSVG(
-                  countryCentroids[selectedCountry][0],
-                  countryCentroids[selectedCountry][1],
-                  viewBoxWidth,
-                  viewBoxHeight
-                );
-                const radarRadius = 45;
-                
-                return (
-                  <>
-                    {/* Dark green background circle */}
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={radarRadius}
-                      fill="#003300"
-                      opacity="0.8"
-                    />
-                    
-                    {/* Radar sweep circles */}
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={radarRadius}
-                      fill="none"
-                      stroke="#00ff00"
-                      strokeWidth="1.5"
-                    />
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={radarRadius * 0.66}
-                      fill="none"
-                      stroke="#00ff00"
-                      strokeWidth="1.2"
-                    />
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={radarRadius * 0.33}
-                      fill="none"
-                      stroke="#00ff00"
-                      strokeWidth="0.9"
-                    />
-                    
-                    {/* Spinning radar sweep - straight line */}
-                    <g>
-                      <defs>
-                        <linearGradient id="radarSweepGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#00ff00" stopOpacity="0.9" />
-                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      {/* Straight line from center */}
-                      <line
-                        x1={cx}
-                        y1={cy}
-                        x2={cx + radarRadius}
-                        y2={cy}
-                        stroke="url(#radarSweepGradient)"
-                        strokeWidth="2"
-                        style={{ 
-                          transformOrigin: `${cx}px ${cy}px`,
-                          animation: 'radarSpin 2s linear infinite'
-                        }}
-                      />
-                      <style>
-                        {`
-                          @keyframes radarSpin {
-                            from { transform: rotate(0deg); }
-                            to { transform: rotate(360deg); }
-                          }
-                        `}
-                      </style>
-                    </g>
-                    
-                    {/* Center dot */}
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r="3"
-                      fill="#00ff00"
-                      className="animate-pulse"
-                    />
-                  </>
-                );
-              })()}
-            </g>
-          )}
-          
           {/* Conflict visualizations between selected country and enemies */}
           {showConflicts && selectedCountry && countryCentroids[selectedCountry] && enemyCountries.slice(0, visibleConflictCount).map((enemyCountry, idx) => {
             if (!countryCentroids[enemyCountry]) return null;
@@ -1159,7 +1112,103 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             );
           })}
           
-          {/* Aircraft positions with minimal styling - only show based on sensitivity */}
+          {/* Spinning radar on selected country - Below planes but above everything else */}
+          {selectedCountry && countryCentroids[selectedCountry] && !isExploding && (
+            <g>
+              {(() => {
+                const [cx, cy] = projectToSVG(
+                  countryCentroids[selectedCountry][0],
+                  countryCentroids[selectedCountry][1],
+                  viewBoxWidth,
+                  viewBoxHeight
+                );
+                const radarRadius = 45;
+                
+                return (
+                  <>
+                    {/* Dark green background circle */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius}
+                      fill="#003300"
+                      opacity="0.8"
+                    />
+                    
+                    {/* Radar sweep circles */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="1.5"
+                    />
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius * 0.66}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="1.2"
+                    />
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius * 0.33}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="0.9"
+                    />
+                    
+                    {/* Spinning radar sweep - rotating line with gradient */}
+                    <g>
+                      <defs>
+                        <linearGradient id="radarSweepGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#00ff00" stopOpacity="1" />
+                          <stop offset="50%" stopColor="#00ff00" stopOpacity="0.6" />
+                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      {/* Rotating sweep line from center to edge */}
+                      <line
+                        x1={cx}
+                        y1={cy}
+                        x2={cx + radarRadius}
+                        y2={cy}
+                        stroke="url(#radarSweepGradient)"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        style={{ 
+                          transformOrigin: `${cx}px ${cy}px`,
+                          animation: 'radarSpin 3s linear infinite'
+                        }}
+                      />
+                      <style>
+                        {`
+                          @keyframes radarSpin {
+                            from { transform: rotate(0deg); }
+                            to { transform: rotate(360deg); }
+                          }
+                        `}
+                      </style>
+                    </g>
+                    
+                    {/* Center dot */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r="3"
+                      fill="#00ff00"
+                      className="animate-pulse"
+                    />
+                  </>
+                );
+              })()}
+            </g>
+          )}
+          
+          {/* Aircraft positions - RENDER LAST SO PLANES ARE ON TOP OF RADAR */}
           {visibleAircraft.map((plane) => {
             if (plane.latitude === null || plane.longitude === null) return null;
             
@@ -1234,118 +1283,237 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
         </DialogContent>
       </Dialog>
 
-      {/* Threats Dashboard */}
-      <Dialog open={showThreatsDashboard} onOpenChange={setShowThreatsDashboard}>
-        <DialogContent className="bg-card/95 border-2 border-primary max-w-4xl backdrop-blur-sm max-h-[90vh] overflow-y-auto">
+      {/* Combat Statistics Dashboard */}
+      <Dialog 
+        open={showThreatsDashboard} 
+        onOpenChange={(open) => {
+          setShowThreatsDashboard(open);
+          // If closing during game over, restart immediately
+          if (!open && isExploding && onGameOver) {
+            onGameOver();
+          }
+        }}
+      >
+        <DialogContent className="bg-card/95 border-2 border-primary max-w-5xl backdrop-blur-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-primary tracking-wider text-glow text-lg">THREAT DETECTION DASHBOARD</DialogTitle>
+            <DialogTitle className="text-primary tracking-wider text-glow text-lg">
+              {isExploding ? "FINAL COMBAT REPORT" : "COMBAT STATISTICS DASHBOARD"}
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Real-time analysis of {threatStats.total} detected hostile aircraft
+              {isExploding 
+                ? `Game summary - Press X to restart or wait ${dashboardCountdown} seconds`
+                : "Real-time conflict monitoring and escalation analysis"}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-6 mt-4">
             {/* Summary Cards */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="bg-background/50 border border-primary/30 p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">TOTAL THREATS</p>
-                <p className="text-2xl font-bold text-orange-400">{threatStats.total}</p>
+            <div className="grid grid-cols-5 gap-4">
+              <div className="bg-background/50 border border-red-500/50 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">ACTIVE CONFLICTS</p>
+                <p className="text-3xl font-bold text-red-500">{enemyCountries.length + chainConflicts.length + randomConflicts.length}</p>
+              </div>
+              <div className="bg-background/50 border border-orange-500/50 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">DIRECT ATTACKS</p>
+                <p className="text-3xl font-bold text-orange-400">{enemyCountries.length}</p>
+              </div>
+              <div className="bg-background/50 border border-yellow-500/50 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">CHAIN REACTIONS</p>
+                <p className="text-3xl font-bold text-yellow-500">{chainConflicts.length}</p>
               </div>
               <div className="bg-background/50 border border-primary/30 p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">IN FLIGHT</p>
-                <p className="text-2xl font-bold text-red-500">{threatStats.inFlight}</p>
+                <p className="text-xs text-muted-foreground mb-1">GLOBAL WARFARE</p>
+                <p className="text-3xl font-bold text-primary">{randomConflicts.length}</p>
               </div>
-              <div className="bg-background/50 border border-primary/30 p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">ON GROUND</p>
-                <p className="text-2xl font-bold text-yellow-500">{threatStats.onGround}</p>
-              </div>
-              <div className="bg-background/50 border border-primary/30 p-4 text-center">
-                <p className="text-xs text-muted-foreground mb-1">AVG ALTITUDE</p>
-                <p className="text-2xl font-bold text-blue-400">{Math.round(threatStats.avgAltitude)}m</p>
+              <div className="bg-background/50 border border-orange-500/50 p-4 text-center">
+                <p className="text-xs text-muted-foreground mb-1">THREATS DETECTED</p>
+                <p className="text-3xl font-bold text-orange-400">{threatStats.total}</p>
               </div>
             </div>
 
-            {/* Altitude Distribution */}
+            {/* Conflict Escalation Timeline */}
+            {conflictHistory.length > 1 && (
+              <div className="bg-background/50 border border-primary/30 p-4">
+                <h3 className="text-xs text-primary tracking-wider mb-3">CONFLICT ESCALATION TIMELINE</h3>
+                <div className="relative h-48 border border-primary/20">
+                  <svg className="w-full h-full" viewBox="0 0 600 180" preserveAspectRatio="none">
+                    {/* Grid lines */}
+                    <line x1="0" y1="45" x2="600" y2="45" stroke="rgba(255,51,51,0.1)" strokeWidth="1" />
+                    <line x1="0" y1="90" x2="600" y2="90" stroke="rgba(255,51,51,0.1)" strokeWidth="1" />
+                    <line x1="0" y1="135" x2="600" y2="135" stroke="rgba(255,51,51,0.1)" strokeWidth="1" />
+                    
+                    {/* Conflict line */}
+                    {conflictHistory.length > 1 && (() => {
+                      const maxConflicts = Math.max(...conflictHistory.map(h => h.conflicts), 1);
+                      const points = conflictHistory.map((h, i) => {
+                        const x = (i / (conflictHistory.length - 1)) * 600;
+                        const y = 170 - (h.conflicts / maxConflicts) * 160;
+                        return `${x},${y}`;
+                      }).join(' ');
+                      return <polyline points={points} fill="none" stroke="#ff3333" strokeWidth="3" />;
+                    })()}
+                    
+                    {/* Threat line */}
+                    {conflictHistory.length > 1 && (() => {
+                      const maxThreats = Math.max(...conflictHistory.map(h => h.threats), 1);
+                      const points = conflictHistory.map((h, i) => {
+                        const x = (i / (conflictHistory.length - 1)) * 600;
+                        const y = 170 - (h.threats / maxThreats) * 160;
+                        return `${x},${y}`;
+                      }).join(' ');
+                      return <polyline points={points} fill="none" stroke="#ff9933" strokeWidth="2" strokeDasharray="5,5" />;
+                    })()}
+                  </svg>
+                  <div className="absolute top-2 right-2 flex gap-4 text-[10px]">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-0.5 bg-red-500"></div>
+                      <span className="text-muted-foreground">Conflicts</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-0.5 bg-orange-400" style={{ borderTop: '2px dashed' }}></div>
+                      <span className="text-muted-foreground">Threats</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-2">
+                  <span>Start</span>
+                  <span>Current Time</span>
+                </div>
+              </div>
+            )}
+
+            {/* Conflict Type Breakdown */}
             <div className="bg-background/50 border border-primary/30 p-4">
-              <h3 className="text-xs text-primary tracking-wider mb-3">ALTITUDE DISTRIBUTION</h3>
+              <h3 className="text-xs text-primary tracking-wider mb-3">CONFLICT TYPE BREAKDOWN</h3>
               <div className="space-y-2">
                 <div>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">LOW (&lt; 3,000m)</span>
-                    <span className="text-orange-400">{threatStats.altitudeRanges.low}</span>
+                    <span className="text-muted-foreground">DIRECT ASSAULTS ({selectedCountry} → Others)</span>
+                    <span className="text-orange-400">{enemyCountries.length}</span>
                   </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                  <div className="w-full bg-background h-6 relative overflow-hidden">
                     <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 to-orange-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.low / threatStats.total) * 100 : 0}%` }}
-                    />
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 to-orange-400 flex items-center justify-center"
+                      style={{ width: `${(enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? (enemyCountries.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100 : 0}%` }}
+                    >
+                      <span className="text-[10px] font-bold text-white drop-shadow">
+                        {((enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? ((enemyCountries.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100).toFixed(0) : 0)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">MEDIUM (3,000-10,000m)</span>
-                    <span className="text-yellow-400">{threatStats.altitudeRanges.medium}</span>
+                    <span className="text-muted-foreground">CHAIN REACTIONS (Cascading Conflicts)</span>
+                    <span className="text-yellow-400">{chainConflicts.length}</span>
                   </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                  <div className="w-full bg-background h-6 relative overflow-hidden">
                     <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-600 to-yellow-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.medium / threatStats.total) * 100 : 0}%` }}
-                    />
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-600 to-yellow-400 flex items-center justify-center"
+                      style={{ width: `${(enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? (chainConflicts.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100 : 0}%` }}
+                    >
+                      <span className="text-[10px] font-bold text-white drop-shadow">
+                        {((enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? ((chainConflicts.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100).toFixed(0) : 0)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">HIGH (&gt; 10,000m)</span>
-                    <span className="text-red-400">{threatStats.altitudeRanges.high}</span>
+                    <span className="text-muted-foreground">GLOBAL WARFARE (Random Engagements)</span>
+                    <span className="text-red-400">{randomConflicts.length}</span>
                   </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
+                  <div className="w-full bg-background h-6 relative overflow-hidden">
                     <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-red-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.altitudeRanges.high / threatStats.total) * 100 : 0}%` }}
-                    />
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-red-400 flex items-center justify-center"
+                      style={{ width: `${(enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? (randomConflicts.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100 : 0}%` }}
+                    >
+                      <span className="text-[10px] font-bold text-white drop-shadow">
+                        {((enemyCountries.length + chainConflicts.length + randomConflicts.length) > 0 ? ((randomConflicts.length / (enemyCountries.length + chainConflicts.length + randomConflicts.length)) * 100).toFixed(0) : 0)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Speed Distribution */}
-            <div className="bg-background/50 border border-primary/30 p-4">
-              <h3 className="text-xs text-primary tracking-wider mb-3">VELOCITY DISTRIBUTION</h3>
-              <div className="space-y-2">
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">SLOW (&lt; 360 km/h)</span>
-                    <span className="text-blue-400">{threatStats.speedRanges.slow}</span>
-                  </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 to-blue-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.slow / threatStats.total) * 100 : 0}%` }}
-                    />
+            {/* Sensitivity Impact Analysis */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-background/50 border border-primary/30 p-4">
+                <h3 className="text-xs text-primary tracking-wider mb-3">CURRENT SENSITIVITY LEVEL</h3>
+                <div className="flex items-center justify-center h-32">
+                  <div className="relative w-32 h-32">
+                    <svg className="w-full h-full -rotate-90">
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        fill="none"
+                        stroke="rgba(255,51,51,0.2)"
+                        strokeWidth="8"
+                      />
+                      <circle
+                        cx="64"
+                        cy="64"
+                        r="56"
+                        fill="none"
+                        stroke="#ff3333"
+                        strokeWidth="8"
+                        strokeDasharray={`${2 * Math.PI * 56}`}
+                        strokeDashoffset={`${2 * Math.PI * 56 * (1 - sensitivity[0])}`}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-3xl font-bold text-primary">{(sensitivity[0] * 100).toFixed(0)}%</p>
+                      <p className="text-[10px] text-muted-foreground">SENSITIVITY</p>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">MEDIUM (360-900 km/h)</span>
-                    <span className="text-yellow-400">{threatStats.speedRanges.medium}</span>
+              </div>
+
+              <div className="bg-background/50 border border-primary/30 p-4">
+                <h3 className="text-xs text-primary tracking-wider mb-3">ESCALATION RISK</h3>
+                <div className="space-y-3 mt-4">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Threat Detection</span>
+                      <span className={sensitivity[0] > 0.7 ? "text-red-400" : sensitivity[0] > 0.4 ? "text-yellow-400" : "text-green-400"}>
+                        {sensitivity[0] > 0.7 ? "CRITICAL" : sensitivity[0] > 0.4 ? "ELEVATED" : "MINIMAL"}
+                      </span>
+                    </div>
+                    <div className="w-full bg-background h-2">
+                      <div 
+                        className={`h-full ${sensitivity[0] > 0.7 ? "bg-red-500" : sensitivity[0] > 0.4 ? "bg-yellow-500" : "bg-green-500"}`}
+                        style={{ width: `${sensitivity[0] * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-600 to-yellow-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.medium / threatStats.total) * 100 : 0}%` }}
-                    />
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Conflict Probability</span>
+                      <span className="text-orange-400">{((enemyCountries.length / Math.max(countries.length - 1, 1)) * 100).toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-background h-2">
+                      <div 
+                        className="h-full bg-gradient-to-r from-orange-600 to-red-600"
+                        style={{ width: `${(enemyCountries.length / Math.max(countries.length - 1, 1)) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">FAST (&gt; 900 km/h)</span>
-                    <span className="text-red-400">{threatStats.speedRanges.fast}</span>
-                  </div>
-                  <div className="w-full bg-background h-4 relative overflow-hidden">
-                    <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-red-400"
-                      style={{ width: `${threatStats.total > 0 ? (threatStats.speedRanges.fast / threatStats.total) * 100 : 0}%` }}
-                    />
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Global Instability</span>
+                      <span className="text-red-400">
+                        {((randomConflicts.length / Math.max(enemyCountries.length + chainConflicts.length + randomConflicts.length, 1)) * 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-background h-2">
+                      <div 
+                        className="h-full bg-red-600"
+                        style={{ width: `${(randomConflicts.length / Math.max(enemyCountries.length + chainConflicts.length + randomConflicts.length, 1)) * 100}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1375,33 +1543,22 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               </div>
             </div>
 
-            {/* All Aircraft List */}
-            <div className="bg-background/50 border border-primary/30 p-4">
-              <h3 className="text-xs text-primary tracking-wider mb-3">ALL DETECTED THREATS</h3>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {visibleAircraft.map((aircraft, idx) => (
-                  <div 
-                    key={aircraft.icao24}
-                    className="border border-primary/20 p-3 hover:border-primary/50 transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedAircraft(aircraft);
-                      setShowThreatsDashboard(false);
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-xs font-mono text-orange-400">#{idx + 1} - {aircraft.icao24}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {aircraft.callsign || 'Unknown'} • {aircraft.originCountry || 'Unknown'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-primary">{aircraft.barometricAltitude ? `${Math.round(aircraft.barometricAltitude)}m` : 'N/A'}</p>
-                        <p className="text-[10px] text-muted-foreground">{aircraft.velocity ? `${Math.round(aircraft.velocity * 3.6)} km/h` : 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {/* Combat Summary */}
+            <div className="bg-background/50 border-2 border-red-500/50 p-6">
+              <div className="text-center space-y-2">
+                <h3 className="text-sm text-primary tracking-wider text-glow">SITUATION ANALYSIS</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Current sensitivity settings have triggered <span className="text-red-500 font-bold">{enemyCountries.length + chainConflicts.length + randomConflicts.length}</span> active conflicts.
+                  {sensitivity[0] > 0.7 && " CRITICAL: Global warfare imminent. Immediate de-escalation required."}
+                  {sensitivity[0] > 0.4 && sensitivity[0] <= 0.7 && " WARNING: Conflicts spreading rapidly through chain reactions."}
+                  {sensitivity[0] <= 0.4 && sensitivity[0] > 0 && " ALERT: Regional tensions detected. Monitor situation closely."}
+                  {sensitivity[0] === 0 && " STATUS: All systems nominal. No active conflicts detected."}
+                </p>
+                <div className="pt-4 border-t border-primary/20">
+                  <p className="text-[10px] text-muted-foreground italic">
+                    "{sensitivity[0] > 0.5 ? "The smallest spark can ignite the greatest inferno." : "Peace is maintained by constant vigilance."}"
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -1494,34 +1651,127 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
         </DialogContent>
       </Dialog>
 
+      {/* Tutorial Modal */}
+      <Dialog open={showTutorial} onOpenChange={(open) => {
+        if (!open) {
+          setShowTutorial(false);
+          setTimerStarted(true);
+        }
+      }}>
+        <DialogContent className="bg-card/95 border-2 border-primary max-w-2xl backdrop-blur-sm p-0 max-h-[80vh] flex flex-col">
+          <div className="px-6 pt-6 pb-4 border-b border-primary/30">
+            <DialogHeader>
+              <DialogTitle className="text-primary tracking-wider text-glow text-xl">MISSION BRIEFING</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Welcome to SKYTRACK COMMAND - {selectedCountry.toUpperCase()}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          
+          <div className="overflow-y-auto px-6 py-4 space-y-5 text-sm text-muted-foreground leading-relaxed flex-1">
+            <div className="bg-primary/5 border border-primary/30 p-4 rounded">
+              <h3 className="text-primary font-bold mb-2 tracking-wider">🎯 OBJECTIVE</h3>
+              <p>
+                You are in command of <span className="text-primary font-bold">{selectedCountry}</span>'s defense systems. 
+                Your mission: <span className="text-yellow-400 font-bold">Survive for 10 minutes</span> without triggering global nuclear warfare.
+              </p>
+            </div>
+
+            <div className="bg-orange-950/20 border border-orange-500/30 p-4 rounded">
+              <h3 className="text-orange-400 font-bold mb-2 tracking-wider">⚠️ THREAT DETECTION</h3>
+              <p>
+                Use the <span className="text-orange-400 font-bold">SENSITIVITY SLIDER</span> to control your radar detection level:
+              </p>
+              <ul className="list-disc list-inside mt-2 space-y-1 ml-2">
+                <li><span className="text-green-400">Low sensitivity (0-33%)</span>: Few threats detected, lower conflict risk</li>
+                <li><span className="text-yellow-400">Medium sensitivity (34-66%)</span>: More threats visible, moderate escalation</li>
+                <li><span className="text-red-400">High sensitivity (67-100%)</span>: Maximum detection, extreme danger of global war</li>
+              </ul>
+            </div>
+
+            <div className="bg-red-950/20 border border-red-500/30 p-4 rounded">
+              <h3 className="text-red-400 font-bold mb-2 tracking-wider">☢️ WARNING: CHAOS THEORY IN ACTION</h3>
+              <p>
+                <span className="text-red-400 font-bold">Every aircraft detected is a potential trigger</span> for conflict. 
+                Higher sensitivity = More threats = More conflicts = Chain reactions of retaliation.
+              </p>
+              <p className="mt-2">
+                Watch the <span className="text-primary font-bold">COMBAT STATISTICS</span> panel (bottom-left) to monitor escalation. 
+                Click it to view detailed analytics.
+              </p>
+            </div>
+
+            <div className="bg-blue-950/20 border border-blue-500/30 p-4 rounded">
+              <h3 className="text-blue-400 font-bold mb-2 tracking-wider">🎮 CONTROLS</h3>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Adjust the <span className="text-orange-400">sensitivity slider</span> on the right to control threat detection</li>
+                <li>Click on <span className="text-green-400">aircraft icons</span> to view detailed information</li>
+                <li>Watch the <span className="text-yellow-400">timer</span> at the top - survive 10 minutes to win</li>
+                <li>Monitor <span className="text-red-400">missile paths</span> showing active conflicts</li>
+              </ul>
+            </div>
+
+            <div className="text-center pt-2 pb-4">
+              <p className="text-primary font-bold animate-pulse text-base">
+                The timer will begin when you start the mission.
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Good luck, Commander. The fate of {selectedCountry} is in your hands.
+              </p>
+            </div>
+            
+            <div className="text-center text-xs text-primary/60 animate-pulse pb-2">
+              ↓ Scroll down to continue ↓
+            </div>
+          </div>
+
+          <div className="px-6 py-4 border-t border-primary/30 flex justify-center bg-card/50">
+            <Button 
+              onClick={() => {
+                setShowTutorial(false);
+                setTimerStarted(true);
+              }}
+              className="px-8 py-3 text-lg font-bold tracking-wider bg-primary/20 hover:bg-primary/30 border-2 border-primary animate-pulse"
+            >
+              BEGIN MISSION
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Attack Statistics Panel - Bottom Left */}
       <div className="absolute bottom-8 left-8 bg-card/95 border-2 border-primary px-6 py-4 z-20 animate-scale-in min-w-[280px]">
-        <h3 className="text-xs text-primary tracking-wider text-glow mb-3 text-center border-b border-primary/30 pb-2">
-          COMBAT STATISTICS
-        </h3>
+        <button
+          onClick={() => setShowThreatsDashboard(true)}
+          className="w-full hover:bg-primary/10 transition-colors -mx-6 -mt-4 px-6 py-2 mb-3"
+        >
+          <h3 className="text-xs text-primary tracking-wider text-glow text-center border-b border-primary/30 pb-2 hover:text-primary/80">
+            COMBAT STATISTICS ▶
+          </h3>
+        </button>
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] text-muted-foreground tracking-wide">ATTACKS RECEIVED</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide text-center">ATTACKS RECEIVED</span>
             <span className="text-sm text-red-400 font-mono font-bold animate-pulse">{enemyCountries.length}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] text-muted-foreground tracking-wide">ATTACKS SENT</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide text-center">ATTACKS SENT</span>
             <span className="text-sm text-orange-400 font-mono font-bold animate-pulse">{chainConflicts.length}</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] text-muted-foreground tracking-wide">RANDOM CONFLICTS</span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide text-center">RANDOM CONFLICTS</span>
             <span className="text-sm text-yellow-400 font-mono font-bold animate-pulse">{randomConflicts.length}</span>
           </div>
           <div className="border-t border-primary/30 pt-2 mt-2">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] text-primary tracking-wide font-bold">TOTAL CONFLICTS</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[10px] text-primary tracking-wide font-bold text-center">TOTAL CONFLICTS</span>
               <span className="text-base text-primary font-mono font-bold text-glow animate-pulse">
                 {enemyCountries.length + chainConflicts.length + randomConflicts.length}
               </span>
             </div>
           </div>
-          <div className="flex justify-between items-center pt-1">
-            <span className="text-[10px] text-muted-foreground tracking-wide">THREAT LEVEL</span>
+          <div className="flex flex-col items-center gap-1 pt-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide text-center">THREAT LEVEL</span>
             <span 
               className="text-sm font-mono font-bold"
               style={{ color: `hsl(${120 - sensitivity[0] * 120}, 100%, 50%)` }}
@@ -1529,8 +1779,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               {(sensitivity[0] * 100).toFixed(0)}%
             </span>
           </div>
-          <div className="flex justify-between items-center pt-1">
-            <span className="text-[10px] text-muted-foreground tracking-wide">COUNTRIES AFFECTED</span>
+          <div className="flex flex-col items-center gap-1 pt-1">
+            <span className="text-[10px] text-muted-foreground tracking-wide text-center">COUNTRIES AFFECTED</span>
             <span className="text-sm text-cyan-400 font-mono font-bold">
               {new Set([
                 selectedCountry,
@@ -1591,16 +1841,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
             <p className="text-muted-foreground font-mono">
               {sensitivity[0].toFixed(2)}
             </p>
+            <p className="text-orange-400 font-mono text-[10px]">
+              {visibleAircraft.length} THREATS
+            </p>
             <button
               onClick={() => setShowThreatsDashboard(true)}
-              className="text-orange-400 font-mono text-[10px] hover:text-orange-300 hover:underline cursor-pointer transition-colors"
-              disabled={visibleAircraft.length === 0}
+              className="text-primary font-mono text-[10px] hover:text-primary/80 hover:underline cursor-pointer transition-colors"
+              disabled={enemyCountries.length + chainConflicts.length + randomConflicts.length === 0}
             >
-              {visibleAircraft.length} THREATS
-            </button>
-            <p className="text-primary font-mono text-[10px]">
               {enemyCountries.length + chainConflicts.length + randomConflicts.length} {(enemyCountries.length + chainConflicts.length + randomConflicts.length) === 1 ? 'CONFLICT' : 'CONFLICTS'}
-            </p>
+            </button>
           </div>
         </div>
       </div>

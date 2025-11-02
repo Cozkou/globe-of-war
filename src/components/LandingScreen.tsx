@@ -130,7 +130,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
   const handleStart = () => {
     setIsAnimating(true);
-    // Wait for animations to complete before transitioning
+    // Fade out globe then transition to globe selection page
     setTimeout(() => {
       onStart();
     }, 1500);
@@ -200,7 +200,7 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* 3D Spinning Globe at bottom */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[30vh]'}`}
+        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 translate-y-[30vh] ${isAnimating ? 'opacity-0' : 'opacity-100'}`}
         style={{ height: '100vh' }}
       >
         <Canvas camera={{ position: [0, 0, 3.5], fov: 45 }} gl={{ alpha: true }}>
