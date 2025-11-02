@@ -352,8 +352,30 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <svg
           viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
           className="w-full h-full"
-          style={{ maxHeight: '100%', maxWidth: '100%' }}
+          style={{ 
+            maxHeight: '100%', 
+            maxWidth: '100%',
+            animation: visibleConflictCount > 10 
+              ? `mapShake ${Math.max(0.1, 0.8 - (visibleConflictCount / 100))}s infinite` 
+              : 'none'
+          }}
         >
+          <style>
+            {`
+              @keyframes mapShake {
+                0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                10% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                20% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                30% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                40% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                50% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(0deg); }
+                60% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                70% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, -${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                80% { transform: translate(${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(-${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+                90% { transform: translate(-${Math.min(visibleConflictCount / 10, 4)}px, ${Math.min(visibleConflictCount / 10, 4)}px) rotate(${Math.min(visibleConflictCount / 50, 0.5)}deg); }
+              }
+            `}
+          </style>
           
           {/* Subtle grid overlay and gradients */}
           <defs>
@@ -377,6 +399,91 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
           
           {/* Render all countries */}
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
+          
+          {/* Spinning radar on selected country */}
+          {selectedCountry && countryCentroids[selectedCountry] && (
+            <g>
+              {(() => {
+                const [cx, cy] = projectToSVG(
+                  countryCentroids[selectedCountry][0],
+                  countryCentroids[selectedCountry][1],
+                  viewBoxWidth,
+                  viewBoxHeight
+                );
+                const radarRadius = 30;
+                
+                return (
+                  <>
+                    {/* Radar sweep circles */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="1"
+                      opacity="0.4"
+                    />
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius * 0.66}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="0.8"
+                      opacity="0.3"
+                    />
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius * 0.33}
+                      fill="none"
+                      stroke="#00ff00"
+                      strokeWidth="0.6"
+                      opacity="0.2"
+                    />
+                    
+                    {/* Spinning radar sweep */}
+                    <g>
+                      <defs>
+                        <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
+                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0.6" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d={`M ${cx} ${cy} L ${cx + radarRadius} ${cy} A ${radarRadius} ${radarRadius} 0 0 1 ${cx} ${cy - radarRadius} Z`}
+                        fill="url(#radarGradient)"
+                        opacity="0.7"
+                        style={{ 
+                          transformOrigin: `${cx}px ${cy}px`,
+                          animation: 'radarSpin 2s linear infinite'
+                        }}
+                      />
+                      <style>
+                        {`
+                          @keyframes radarSpin {
+                            from { transform: rotate(0deg); }
+                            to { transform: rotate(360deg); }
+                          }
+                        `}
+                      </style>
+                    </g>
+                    
+                    {/* Center dot */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r="3"
+                      fill="#00ff00"
+                      opacity="0.9"
+                      className="animate-pulse"
+                    />
+                  </>
+                );
+              })()}
+            </g>
+          )}
           
           {/* Conflict visualizations between selected country and enemies */}
           {showConflicts && selectedCountry && countryCentroids[selectedCountry] && enemyCountries.slice(0, visibleConflictCount).map((enemyCountry, idx) => {
@@ -733,37 +840,6 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         </svg>
       </div>
 
-      {/* Screen shake effect based on conflict count */}
-      <div 
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          animation: visibleConflictCount > 10 
-            ? `shake ${Math.max(0.1, 0.8 - (visibleConflictCount / 100))}s infinite` 
-            : 'none'
-        }}
-      >
-        <style>
-          {`
-            @keyframes shake {
-              0%, 100% { transform: translate(0, 0); }
-              10% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
-              20% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
-              30% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
-              40% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
-              50% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
-              60% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
-              70% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, -${Math.min(visibleConflictCount / 10, 5)}px); }
-              80% { transform: translate(${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
-              90% { transform: translate(-${Math.min(visibleConflictCount / 10, 5)}px, ${Math.min(visibleConflictCount / 10, 5)}px); }
-            }
-          `}
-        </style>
-        <div className="absolute inset-0" style={{
-          background: visibleConflictCount > 50 
-            ? `radial-gradient(circle at center, rgba(255, 0, 0, ${Math.min((visibleConflictCount - 50) / 200, 0.3)}) 0%, transparent 70%)`
-            : 'transparent'
-        }} />
-      </div>
 
       {/* Country indicator in top-right corner */}
       <div className="absolute top-4 right-4 bg-card/95 border-2 border-primary px-6 py-3 flex items-center gap-2 z-20 animate-scale-in">
@@ -892,6 +968,16 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
         <div className="absolute bottom-20 right-8 bg-card/95 border-2 border-primary px-4 py-2 z-20 animate-scale-in">
           <p className="text-xs text-primary tracking-wider text-glow">LOADING AIRCRAFT DATA...</p>
         </div>
+      )}
+      
+      {/* Red chaos overlay at high conflict count */}
+      {visibleConflictCount > 50 && (
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at center, rgba(255, 0, 0, ${Math.min((visibleConflictCount - 50) / 200, 0.3)}) 0%, transparent 70%)`
+          }}
+        />
       )}
       
       {/* Red glow at edges */}
