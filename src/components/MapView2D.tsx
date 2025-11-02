@@ -1369,87 +1369,22 @@ export default function MapView2D({
             </div>
 
             {/* Sensitivity vs Threats Correlation Graph - LIVE TRACKING SCREEN */}
-            <div className="bg-background/50 border-2 border-red-500/50 p-4 relative">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                  <h3 className="text-xs text-red-400 tracking-wider font-bold">
-                    🔴 LIVE TRACKING: YOUR THREAT POSITION
-                  </h3>
-                </div>
-                <div className="text-[10px] font-mono text-muted-foreground">
+            <div className="bg-background/50 border border-border p-6 relative">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm text-primary tracking-wider font-bold">
+                  🔴 LIVE TRACKING: YOUR THREAT POSITION
+                </h3>
+                <div className="text-xs font-mono text-muted-foreground">
                   SENSITIVITY: {(sensitivity[0] * 1000).toFixed(0)}%
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center mb-4">
-                Sensitivity vs Threats - Watch exponential escalation as you increase detection threshold
-              </p>
-              <div className="relative h-64 border-4 border-red-500/50 bg-black overflow-hidden" style={{
-              boxShadow: 'inset 0 0 30px rgba(255,0,0,0.3), 0 0 20px rgba(255,0,0,0.2)'
-            }}>
-                {/* TV Screen Effect Overlay */}
-                <div className="absolute inset-0 pointer-events-none z-50" style={{
-                background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,0,0,0.03) 2px, rgba(255,0,0,0.03) 4px)'
-              }}>
-                </div>
-
-                {/* Threat Level Indicator */}
-                {(() => {
-                // Get current threat count
-                const currentPoint = positionTrail[positionTrail.length - 1];
-                const threatCount = currentPoint ? currentPoint.y : 0;
-
-                // Normalize based on max threat count
-                const visiblePoints = positionTrail.slice(0, Math.min(visibleTrailPoints, positionTrail.length));
-                const maxY = Math.max(...visiblePoints.map(p => p.y), 1);
-                const normalizedThreat = maxY > 0 ? threatCount / maxY : 0;
-                let actualThreats = visibleAircraft.length + enemyCountries.length + chainConflicts.length + randomConflicts.length;
-                const threatLevel = threatCount === 0 ? "SAFE" : threatCount < 10 ? "LOW" : threatCount < 50 ? "MODERATE" : threatCount < 100 ? "HIGH" : threatCount < 200 ? "CRITICAL" : "MAXIMUM";
-                const threatColor = threatCount === 0 ? "#00ff00" : threatCount < 10 ? "#88ff00" : threatCount < 50 ? "#ffff00" : threatCount < 100 ? "#ffaa00" : threatCount < 200 ? "#ff6600" : "#ff0000";
-                return <div className="absolute top-2 left-2 right-2 z-40 flex justify-between items-start">
-                      <div className="bg-black/80 border border-green-500/50 px-3 py-1 rounded">
-                        <p className="text-[8px] text-green-400 font-mono">TRACKING ACTIVE</p>
-                      </div>
-                      <div className="bg-black/80 border-2 px-3 py-1 rounded" style={{
-                    borderColor: threatColor
-                  }}>
-                        <p className="text-[10px] font-mono font-bold" style={{
-                      color: threatColor
-                    }}>
-                          {threatLevel}: {actualThreats} CONFLICTS
-                        </p>
-                      </div>
-                    </div>;
-              })()}
-
-                {/* Dynamic Background - Changes color based on threat level */}
-                {(() => {
-                // Get current threat count
-                const currentPoint = positionTrail[positionTrail.length - 1];
-                const threatCount = currentPoint ? currentPoint.y : 0;
-
-                // Normalize based on max threat count
-                const visiblePoints = positionTrail.slice(0, Math.min(visibleTrailPoints, positionTrail.length));
-                const maxY = Math.max(...visiblePoints.map(p => p.y), 1);
-                const normalizedThreat = maxY > 0 ? threatCount / maxY : 0;
-                const bgColor = normalizedThreat === 0 ? "rgba(0, 50, 0, 0.3)" : normalizedThreat < 0.2 ? "rgba(50, 50, 0, 0.3)" : normalizedThreat < 0.4 ? "rgba(80, 40, 0, 0.3)" : normalizedThreat < 0.6 ? "rgba(100, 20, 0, 0.4)" : normalizedThreat < 0.8 ? "rgba(120, 0, 0, 0.5)" : "rgba(150, 0, 0, 0.6)";
-                return <div className="absolute inset-0 transition-colors duration-500" style={{
-                  backgroundColor: bgColor
-                }}>
-                    </div>;
-              })()}
-
-                <svg className="w-full h-full relative z-10" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+              
+              <div className="relative h-80 bg-background/30">
+                <svg className="w-full h-full" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
                   <defs>
-                    {/* Gradient for the danger zone */}
-                    <linearGradient id="dangerZoneGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="rgba(255,0,0,0.3)" />
-                      <stop offset="100%" stopColor="rgba(255,0,0,0)" />
-                    </linearGradient>
-
                     {/* Glow effect for the curve */}
                     <filter id="glowEffect">
-                      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
                       <feMerge>
                         <feMergeNode in="coloredBlur" />
                         <feMergeNode in="SourceGraphic" />
@@ -1457,288 +1392,187 @@ export default function MapView2D({
                     </filter>
                   </defs>
 
-                  {/* Graph boundaries: margin 80px on all sides */}
-                  {/* X: 80-920 (840px width) for sensitivity 0-0.1 */}
-                  {/* Y: 520-80 (440px height, inverted) for threats 0-max */}
+                  {/* Graph boundaries: margin 60px left/bottom, 40px top/right */}
+                  {/* X: 60-960 (900px width) for sensitivity 0-0.1 */}
+                  {/* Y: 540-40 (500px height, inverted) for threats 0-max */}
 
-                  {/* Background grid */}
-                  {(() => {
-                  const lines = [];
-                  // Vertical lines for sensitivity values
-                  for (let i = 0; i <= 10; i++) {
-                    const x = 80 + i * 84; // 0, 0.01, 0.02, ... 0.1
-                    lines.push(<line key={`v${i}`} x1={x} y1="80" x2={x} y2="520" stroke="rgba(255,51,51,0.1)" strokeWidth="1" strokeDasharray="5,5" />);
-                  }
-                  // Horizontal lines for threat count
-                  for (let i = 0; i <= 10; i++) {
-                    const y = 520 - i * 44;
-                    lines.push(<line key={`h${i}`} x1="80" y1={y} x2="920" y2={y} stroke="rgba(255,51,51,0.1)" strokeWidth="1" strokeDasharray="5,5" />);
-                  }
-                  return lines;
-                })()}
+                  {/* Minimalist axes */}
+                  <line x1="60" y1="540" x2="960" y2="540" stroke="hsl(var(--border))" strokeWidth="2" />
+                  <line x1="60" y1="40" x2="60" y2="540" stroke="hsl(var(--border))" strokeWidth="2" />
 
-                  {/* Axes */}
-                  <line x1="80" y1="520" x2="920" y2="520" stroke="rgba(255,51,51,0.5)" strokeWidth="3" />
-                  <line x1="80" y1="80" x2="80" y2="520" stroke="rgba(255,51,51,0.5)" strokeWidth="3" />
-
-                  {/* Critical threshold markers */}
-                  {/* 0.02 threshold (green zone ends) */}
-                  <line x1={80 + 0.02 * 8400} y1="80" x2={80 + 0.02 * 8400} y2="520" stroke="#00ff00" strokeWidth="2" strokeDasharray="10,5" opacity="0.5" />
-                  {/* 0.03 threshold (chaos begins) */}
-                  <line x1={80 + 0.03 * 8400} y1="80" x2={80 + 0.03 * 8400} y2="520" stroke="#ff0000" strokeWidth="2" strokeDasharray="10,5" opacity="0.5" />
-                  
                   {/* X-axis labels (Radar Sensitivity) */}
                   {(() => {
-                  const labels = [];
-                  for (let i = 0; i <= 10; i++) {
-                    const x = 80 + i * 84;
-                    const value = (i * 0.01).toFixed(2);
-                    labels.push(<g key={`x-label-${i}`}>
-                          <line x1={x} y1="520" x2={x} y2="528" stroke="#999" strokeWidth="2" />
-                          <text x={x} y="545" fill="#999" fontSize="11" fontFamily="monospace" textAnchor="middle" fontWeight={i === 2 || i === 3 ? "bold" : "normal"} fill={i === 2 ? "#00ff00" : i === 3 ? "#ff0000" : "#999"}>
-                            {value}
-                          </text>
-                        </g>);
-                  }
-                  return labels;
-                })()}
+                    const labels = [];
+                    for (let i = 0; i <= 5; i++) {
+                      const x = 60 + i * 180; // Every 0.02
+                      const value = (i * 0.02).toFixed(2);
+                      labels.push(
+                        <text 
+                          key={`x-label-${i}`}
+                          x={x} 
+                          y="565" 
+                          fill="hsl(var(--muted-foreground))" 
+                          fontSize="12" 
+                          fontFamily="monospace" 
+                          textAnchor="middle"
+                        >
+                          {value}
+                        </text>
+                      );
+                    }
+                    return labels;
+                  })()}
 
-                  {/* Dynamic Y-axis labels and threat curve */}
+                  {/* Dynamic Y-axis labels and animated threat curve */}
                   {(() => {
-                  const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
-                  if (visibleCount === 0) return null;
+                    const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
+                    if (visibleCount === 0) return null;
 
-                  // Get visible points
-                  const visiblePoints = positionTrail.slice(0, visibleCount);
-                  const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
+                    // Get visible points
+                    const visiblePoints = positionTrail.slice(0, visibleCount);
+                    const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
 
-                  // Calculate nice round increments
-                  const getNextPower = (n: number) => {
-                    if (n <= 0) return 1;
-                    return Math.pow(2, Math.ceil(Math.log2(n)));
-                  };
-                  const maxDisplay = getNextPower(Math.ceil(maxYActual));
-                  const increments = maxDisplay <= 8 ? maxDisplay / 4 : maxDisplay / 8;
+                    // Calculate nice round increments
+                    const getNextPower = (n: number) => {
+                      if (n <= 0) return 1;
+                      return Math.pow(10, Math.ceil(Math.log10(n)));
+                    };
+                    const maxDisplay = getNextPower(Math.ceil(maxYActual));
+                    const increments = maxDisplay / 5;
 
-                  // Draw Y-axis labels
-                  const GRAPH_HEIGHT = 440; // 520 - 80
-                  const yLabels = [];
-                  for (let i = 0; i <= maxDisplay; i += increments) {
-                    const yPixel = 520 - i / maxDisplay * GRAPH_HEIGHT;
-                    yLabels.push(<g key={`y-label-${i}`}>
-                          <line x1="72" y1={yPixel} x2="80" y2={yPixel} stroke="#999" strokeWidth="2" />
-                          <text x="65" y={yPixel + 4} fill="#999" fontSize="11" fontFamily="monospace" textAnchor="end">
-                            {i}
-                          </text>
-                        </g>);
-                  }
+                    // Draw Y-axis labels
+                    const GRAPH_HEIGHT = 500; // 540 - 40
+                    const yLabels = [];
+                    for (let i = 0; i <= 5; i++) {
+                      const yValue = i * increments;
+                      const yPixel = 540 - (yValue / maxDisplay) * GRAPH_HEIGHT;
+                      yLabels.push(
+                        <text 
+                          key={`y-label-${i}`}
+                          x="50" 
+                          y={yPixel + 4} 
+                          fill="hsl(var(--muted-foreground))" 
+                          fontSize="12" 
+                          fontFamily="monospace" 
+                          textAnchor="end"
+                        >
+                          {Math.round(yValue)}
+                        </text>
+                      );
+                    }
 
-                  // Map points to graph coordinates based on SENSITIVITY (not time)
-                  const GRAPH_WIDTH = 840; // 920 - 80
-                  const sensitivityBasedPoints = visiblePoints.map(point => ({
-                    x: 80 + point.sensitivity / 0.1 * GRAPH_WIDTH,
-                    // Map sensitivity 0-0.1 to graph width
-                    y: 520 - point.y / maxDisplay * GRAPH_HEIGHT,
-                    // Map threat count to graph height
-                    originalY: point.y,
-                    sensitivity: point.sensitivity
-                  }));
+                    // Map points to graph coordinates based on SENSITIVITY
+                    const GRAPH_WIDTH = 900; // 960 - 60
+                    const sensitivityBasedPoints = visiblePoints.map(point => ({
+                      x: 60 + (point.sensitivity / 0.1) * GRAPH_WIDTH,
+                      y: 540 - (point.y / maxDisplay) * GRAPH_HEIGHT,
+                      originalY: point.y,
+                      sensitivity: point.sensitivity
+                    }));
 
-                  // Sort by sensitivity to ensure proper line drawing
-                  sensitivityBasedPoints.sort((a, b) => a.sensitivity - b.sensitivity);
-                  if (sensitivityBasedPoints.length < 2) return null;
-                  return <>
+                    // Sort by sensitivity to ensure proper line drawing
+                    sensitivityBasedPoints.sort((a, b) => a.sensitivity - b.sensitivity);
+                    
+                    if (sensitivityBasedPoints.length < 2) return <>{yLabels}</>;
+
+                    // Create smooth path for the curve
+                    const pathData = sensitivityBasedPoints.reduce((path, point, idx) => {
+                      if (idx === 0) {
+                        return `M ${point.x} ${point.y}`;
+                      }
+                      return `${path} L ${point.x} ${point.y}`;
+                    }, '');
+
+                    // Calculate animation progress (0 to 1)
+                    const animationProgress = Math.min(visibleCount / positionTrail.length, 1);
+
+                    return (
+                      <>
                         {/* Y-axis labels */}
                         {yLabels}
 
-                        {/* Safe zone (below 0.02) background */}
-                        <rect x="80" y="80" width={0.02 * GRAPH_WIDTH / 0.1} height="440" fill="rgba(0,255,0,0.05)" />
+                        {/* Animated threat curve with glow */}
+                        <path
+                          d={pathData}
+                          fill="none"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          filter="url(#glowEffect)"
+                          style={{
+                            strokeDasharray: '1000',
+                            strokeDashoffset: 1000 * (1 - animationProgress),
+                            transition: 'stroke-dashoffset 0.5s ease-out'
+                          }}
+                        />
+                        <path
+                          d={pathData}
+                          fill="none"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{
+                            strokeDasharray: '1000',
+                            strokeDashoffset: 1000 * (1 - animationProgress),
+                            transition: 'stroke-dashoffset 0.5s ease-out'
+                          }}
+                        />
 
-                        {/* Danger zone (0.02-0.03) background */}
-                        <rect x={80 + 0.02 * GRAPH_WIDTH / 0.1} y="80" width={0.01 * GRAPH_WIDTH / 0.1} height="440" fill="rgba(255,0,0,0.1)" />
-
-                        {/* Incrementally drawn threat curve - builds as data comes in */}
+                        {/* Current position marker */}
                         {(() => {
-                      // Create segments for smooth animation
-                      const segments = [];
-                      for (let i = 1; i <= visibleCount && i < sensitivityBasedPoints.length; i++) {
-                        const prevPoint = sensitivityBasedPoints[i - 1];
-                        const currPoint = sensitivityBasedPoints[i];
-
-                        // Each segment fades in
-                        const segmentAge = visibleCount - i;
-                        const opacity = Math.min(1, 0.3 + segmentAge * 0.05);
-                        segments.push(<g key={`segment-${i}`}>
-                                {/* Main line segment */}
-                                <line x1={prevPoint.x} y1={prevPoint.y} x2={currPoint.x} y2={currPoint.y} stroke="#00ffff" strokeWidth="4" strokeLinecap="round" opacity={opacity} style={{
-                            transition: 'opacity 0.3s ease-out'
-                          }} />
-                                {/* Glow effect */}
-                                <line x1={prevPoint.x} y1={prevPoint.y} x2={currPoint.x} y2={currPoint.y} stroke="#00ffff" strokeWidth="8" strokeLinecap="round" opacity={opacity * 0.3} filter="url(#glowEffect)" style={{
-                            transition: 'opacity 0.3s ease-out'
-                          }} />
-                              </g>);
-                      }
-                      return segments;
-                    })()}
-
-                        {/* Data points on curve - appear one by one */}
-                        {sensitivityBasedPoints.slice(0, visibleCount).map((point, idx) => {
-                      const pointAge = visibleCount - idx;
-                      const isRecent = pointAge < 5;
-                      return <g key={`point-${idx}`} style={{
-                        animation: 'fadeIn 0.3s ease-out',
-                        transformOrigin: `${point.x}px ${point.y}px`
-                      }}>
-                              {/* Expanding ring for new points */}
-                              {isRecent && <circle cx={point.x} cy={point.y} r="0" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0">
-                                  <animate attributeName="r" values="0;15;25" dur="0.8s" fill="freeze" />
-                                  <animate attributeName="opacity" values="0.8;0.4;0" dur="0.8s" fill="freeze" />
-                                </circle>}
-                              {/* Point dot */}
-                              <circle cx={point.x} cy={point.y} r={isRecent ? "4" : "2.5"} fill="#00ffff" opacity="0.9">
-                                {isRecent && <animate attributeName="r" values="0;6;4" dur="0.4s" fill="freeze" />}
-                              </circle>
-                            </g>;
-                    })}
-                      </>;
-                })()}
+                          const lastPoint = sensitivityBasedPoints[sensitivityBasedPoints.length - 1];
+                          if (!lastPoint || visibleCount < positionTrail.length) return null;
+                          
+                          return (
+                            <circle
+                              cx={lastPoint.x}
+                              cy={lastPoint.y}
+                              r="5"
+                              fill="hsl(var(--primary))"
+                              stroke="hsl(var(--background))"
+                              strokeWidth="2"
+                            >
+                              <animate
+                                attributeName="r"
+                                values="5;8;5"
+                                dur="1.5s"
+                                repeatCount="indefinite"
+                              />
+                            </circle>
+                          );
+                        })()}
+                      </>
+                    );
+                  })()}
                   
                   {/* Axis titles */}
-                  <g>
-                    <text x="500" y="575" fill="#999" fontSize="14" fontFamily="monospace" textAnchor="middle" fontWeight="bold">
-                      RADAR SENSITIVITY →
-                    </text>
-                    <text x="30" y="300" fill="#999" fontSize="14" fontFamily="monospace" textAnchor="middle" fontWeight="bold" transform="rotate(-90, 30, 300)">
-                      ← POTENTIAL THREATS
-                    </text>
-                  </g>
-
-                  {/* Threshold labels */}
-                  <g>
-                    <text x={80 + 0.02 * 8400} y="70" fill="#00ff00" fontSize="10" fontFamily="monospace" textAnchor="middle" fontWeight="bold">
-                      SAFE ZONE
-                    </text>
-                    <text x={80 + 0.025 * 8400} y="70" fill="#ff8800" fontSize="10" fontFamily="monospace" textAnchor="middle" fontWeight="bold">
-                      DANGER ZONE
-                    </text>
-                    <text x={80 + 0.03 * 8400 + 50} y="70" fill="#ff0000" fontSize="10" fontFamily="monospace" textAnchor="start" fontWeight="bold">
-                      CHAOS →
-                    </text>
-                  </g>
-
-                  {/* CURRENT POSITION MARKER */}
-                  {(() => {
-                  const currentPoint = positionTrail[positionTrail.length - 1];
-                  if (!currentPoint) return null;
-
-                  // Calculate position based on sensitivity
-                  const GRAPH_WIDTH = 840;
-                  const GRAPH_HEIGHT = 440;
-                  const currentX = 80 + currentPoint.sensitivity / 0.1 * GRAPH_WIDTH;
-
-                  // Calculate scaled Y
-                  const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
-                  const visiblePoints = positionTrail.slice(0, visibleCount);
-                  const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
-                  const getNextPower = (n: number) => {
-                    if (n <= 0) return 1;
-                    return Math.pow(2, Math.ceil(Math.log2(n)));
-                  };
-                  const maxDisplay = getNextPower(Math.ceil(maxYActual));
-                  const currentY = 520 - currentPoint.y / maxDisplay * GRAPH_HEIGHT;
-                  return <>
-                        {/* Pulsing crosshair */}
-                        <circle cx={currentX} cy={currentY} r="30" fill="none" stroke="#ffff00" strokeWidth="3" opacity="0.6">
-                          <animate attributeName="r" values="30;40;30" dur="1.5s" repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.6;0.2;0.6" dur="1.5s" repeatCount="indefinite" />
-                        </circle>
-                        <circle cx={currentX} cy={currentY} r="20" fill="none" stroke="#ffff00" strokeWidth="2" opacity="0.8" />
-
-                        {/* Crosshair lines */}
-                        <line x1={currentX - 45} y1={currentY} x2={currentX - 23} y2={currentY} stroke="#ffff00" strokeWidth="3" opacity="0.9" />
-                        <line x1={currentX + 45} y1={currentY} x2={currentX + 23} y2={currentY} stroke="#ffff00" strokeWidth="3" opacity="0.9" />
-                        <line x1={currentX} y1={currentY - 45} x2={currentX} y2={currentY - 23} stroke="#ffff00" strokeWidth="3" opacity="0.9" />
-                        <line x1={currentX} y1={currentY + 45} x2={currentX} y2={currentY + 23} stroke="#ffff00" strokeWidth="3" opacity="0.9" />
-
-                        {/* Central point */}
-                        <circle cx={currentX} cy={currentY} r="10" fill="#ffff00" opacity="0.9">
-                          <animate attributeName="r" values="10;14;10" dur="1s" repeatCount="indefinite" />
-                        </circle>
-                        <circle cx={currentX} cy={currentY} r="5" fill="#ffffff" />
-
-                        {/* Position info label */}
-                        <text x={currentX} y={currentY - 55} fill="#ffff00" fontSize="12" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-                          {currentPoint.sensitivity.toFixed(3)} | {currentPoint.y} Threats
-                        </text>
-                      </>;
-                })()}
-
-                  {/* Exponential continuation indicator above 0.03 */}
-                  {(() => {
-                  const continuationX = 80 + 0.03 * 840 / 0.1;
-                  return <g opacity="0.7">
-                        {/* Dashed arrow pointing up and right */}
-                        <path d={`M ${continuationX} 300 L ${continuationX + 50} 150 L ${continuationX + 100} 100`} fill="none" stroke="#ff0000" strokeWidth="3" strokeDasharray="10,5" markerEnd="url(#arrowhead)" />
-                        <text x={continuationX + 50} y="130" fill="#ff0000" fontSize="11" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-                          Continues
-                        </text>
-                        <text x={continuationX + 50} y="145" fill="#ff0000" fontSize="11" fontFamily="monospace" fontWeight="bold" textAnchor="middle">
-                          Exponentially ↗
-                        </text>
-                      </g>;
-                })()}
-
-                  {/* Arrow marker */}
-                  <defs>
-                    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
-                      <polygon points="0 0, 10 5, 0 10" fill="#ff0000" />
-                    </marker>
-                  </defs>
-
-                  {/* Animation styles */}
-                  <style>
-                    {`
-                      @keyframes drawCurve {
-                        from {
-                          stroke-dashoffset: 1000;
-                        }
-                        to {
-                          stroke-dashoffset: 0;
-                        }
-                      }
-
-                      @keyframes fadeIn {
-                        from {
-                          opacity: 0;
-                          transform: scale(0.5);
-                        }
-                        to {
-                          opacity: 1;
-                          transform: scale(1);
-                        }
-                      }
-                    `}
-                  </style>
+                  <text 
+                    x="510" 
+                    y="590" 
+                    fill="hsl(var(--muted-foreground))" 
+                    fontSize="13" 
+                    fontFamily="monospace" 
+                    textAnchor="middle" 
+                    fontWeight="bold"
+                  >
+                    RADAR SENSITIVITY →
+                  </text>
+                  <text 
+                    x="20" 
+                    y="290" 
+                    fill="hsl(var(--muted-foreground))" 
+                    fontSize="13" 
+                    fontFamily="monospace" 
+                    textAnchor="middle" 
+                    fontWeight="bold" 
+                    transform="rotate(-90, 20, 290)"
+                  >
+                    ← THREATS
+                  </text>
                 </svg>
-
-                {/* Legend below graph */}
-                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-6 text-[9px] font-mono">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-green-500/30 border border-green-500"></div>
-                    <span className="text-green-400">Safe Zone</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-red-500/30 border border-red-500"></div>
-                    <span className="text-red-400">Danger Zone</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <span className="text-yellow-400">Your Position</span>
-                  </div>
-                </div>
               </div>
-
             </div>
 
             {/* Conflict Escalation Timeline */}
