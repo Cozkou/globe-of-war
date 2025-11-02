@@ -34,6 +34,13 @@ const Index = () => {
     }, 800);
   };
 
+  const handleGameOver = () => {
+    // Reset to landing screen
+    setShowGlobe(false);
+    setShowMapView(false);
+    setSelectedCountry(null);
+  };
+
   return (
     <main className="min-h-screen bg-background">
       {/* Help Button */}
@@ -59,7 +66,7 @@ const Index = () => {
         <LandingScreen onStart={handleStart} />
       ) : showMapView && selectedCountry ? (
         <div className="animate-fade-in" key="mapview">
-          <MapView2D selectedCountry={selectedCountry} />
+          <MapView2D selectedCountry={selectedCountry} onGameOver={handleGameOver} />
         </div>
       ) : (
         <div className={selectedCountry ? "animate-fade-out" : "animate-fade-in"} key="globe">

@@ -8,6 +8,7 @@ import { calculateBoundingBox, buildAircraftApiUrl } from '@/lib/country-bounds'
 
 interface MapView2DProps {
   selectedCountry: string;
+  onGameOver?: () => void;
 }
 
 interface CountryProperties {
@@ -42,7 +43,7 @@ interface Aircraft {
   positionSource: number | null;
 }
 
-export default function MapView2D({ selectedCountry }: MapView2DProps) {
+export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProps) {
   const [countries, setCountries] = useState<GeoJSONFeature[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [warLevel, setWarLevel] = useState(1);
@@ -197,11 +198,13 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     setExplosionRays(rays);
 
-    // Redirect to landing page after explosion
+    // Call game over after explosion animation
     setTimeout(() => {
-      window.location.href = '/';
-    }, 3000);
-  }, [isExploding]);
+      if (onGameOver) {
+        onGameOver();
+      }
+    }, 4000);
+  }, [isExploding, onGameOver]);
 
   // Generate fake error messages when sensitivity > 0.75
   useEffect(() => {
@@ -508,6 +511,21 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             }} />
           ))}
           
+          {/* GAME OVER text */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto" style={{
+            animation: 'gameOverFade 4s ease-out forwards',
+            animationDelay: '1.5s',
+            opacity: 0
+          }}>
+            <h1 className="text-9xl font-bold text-red-600 tracking-[0.5em]" style={{
+              textShadow: '0 0 40px rgba(255, 0, 0, 1), 0 0 80px rgba(255, 0, 0, 0.8)',
+              animation: 'gameOverPulse 1s ease-in-out infinite',
+              animationDelay: '2s'
+            }}>
+              GAME OVER
+            </h1>
+          </div>
+          
           {/* Final fade to black */}
           <div className="absolute inset-0 bg-black" style={{
             animation: 'fadeToBlack 2s ease-out forwards',
@@ -568,6 +586,24 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               @keyframes fadeToBlack {
                 0% { opacity: 0; }
                 100% { opacity: 1; }
+              }
+              
+              @keyframes gameOverFade {
+                0% { opacity: 0; transform: scale(0.5); }
+                30% { opacity: 1; transform: scale(1.2); }
+                50% { opacity: 1; transform: scale(1); }
+                100% { opacity: 1; transform: scale(1); }
+              }
+              
+              @keyframes gameOverPulse {
+                0%, 100% { 
+                  filter: brightness(1);
+                  transform: scale(1);
+                }
+                50% { 
+                  filter: brightness(1.5);
+                  transform: scale(1.05);
+                }
               }
             `}
           </style>
@@ -650,6 +686,15 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                 
                 return (
                   <>
+                    {/* Dark green background circle */}
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={radarRadius}
+                      fill="#003300"
+                      opacity="0.8"
+                    />
+                    
                     {/* Radar sweep circles */}
                     <circle
                       cx={cx}
@@ -676,17 +721,22 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                       strokeWidth="0.9"
                     />
                     
-                    {/* Spinning radar sweep */}
+                    {/* Spinning radar sweep - straight line */}
                     <g>
                       <defs>
-                        <linearGradient id="radarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                          <stop offset="0%" stopColor="#00ff00" stopOpacity="0" />
-                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0.9" />
+                        <linearGradient id="radarSweepGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#00ff00" stopOpacity="0.9" />
+                          <stop offset="100%" stopColor="#00ff00" stopOpacity="0" />
                         </linearGradient>
                       </defs>
-                      <path
-                        d={`M ${cx} ${cy} L ${cx + radarRadius} ${cy} A ${radarRadius} ${radarRadius} 0 0 1 ${cx} ${cy - radarRadius} Z`}
-                        fill="url(#radarGradient)"
+                      {/* Straight line from center */}
+                      <line
+                        x1={cx}
+                        y1={cy}
+                        x2={cx + radarRadius}
+                        y2={cy}
+                        stroke="url(#radarSweepGradient)"
+                        strokeWidth="2"
                         style={{ 
                           transformOrigin: `${cx}px ${cy}px`,
                           animation: 'radarSpin 2s linear infinite'
