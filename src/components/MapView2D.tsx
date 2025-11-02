@@ -132,7 +132,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     
     setShowConflicts(true);
-    const numConflicts = enemyCountries.length;
+    const totalConflicts = enemyCountries.length + randomConflicts.length;
     setVisibleConflictCount(0);
     
     // Gradually show all conflicts
@@ -140,13 +140,13 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     const interval = setInterval(() => {
       count++;
       setVisibleConflictCount(count);
-      if (count >= numConflicts) {
+      if (count >= totalConflicts) {
         clearInterval(interval);
       }
-    }, 200); // Faster animation for many countries
+    }, 150); // Faster animation for many conflicts
     
     return () => clearInterval(interval);
-  }, [sensitivity, enemyCountries.length]);
+  }, [sensitivity, enemyCountries.length, randomConflicts.length]);
 
   // Map sensitivity to war level - extremely responsive to small changes
   useEffect(() => {
@@ -164,42 +164,42 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       .map(c => c.properties.name)
       .filter(name => name !== selectedCountry);
     
-    // Dramatic scaling: each 0.1 increment adds significantly more countries
-    // 0.0-0.1 = 1 country, 0.2 = 3, 0.3 = 6, 0.5 = 15, 0.7 = 30, 1.0 = ALL
     const totalAvailable = availableCountries.length;
     const sensitivityValue = sensitivity[0];
     
+    // For selected country targets: scale moderately
     let numEnemies;
     if (sensitivityValue >= 0.99) {
-      // At max sensitivity, target ALL countries
-      numEnemies = totalAvailable;
+      numEnemies = Math.min(20, totalAvailable); // Cap at 20 for selected country
     } else if (sensitivityValue < 0.01) {
       numEnemies = 0;
     } else {
-      // Exponential scaling for dramatic differences
-      const exponentialScale = Math.pow(sensitivityValue, 0.3);
-      numEnemies = Math.ceil(exponentialScale * totalAvailable);
+      // Less dramatic scaling for selected country
+      const scale = Math.pow(sensitivityValue, 0.5);
+      numEnemies = Math.ceil(scale * 20);
     }
     
     const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
     setEnemyCountries(shuffled.slice(0, numEnemies));
     
-    // At higher sensitivity (>0.5), add random country-to-country conflicts
-    if (sensitivityValue > 0.5) {
-      const numRandomConflicts = Math.floor((sensitivityValue - 0.5) * totalAvailable * 0.5);
-      const randomPairs: Array<[string, string]> = [];
+    // Random country-to-country conflicts: scale dramatically
+    const randomPairs: Array<[string, string]> = [];
+    
+    if (sensitivityValue > 0.2) {
+      // Exponential scaling: 0.3 = 5 conflicts, 0.5 = 20, 0.7 = 50, 1.0 = 100+
+      const randomConflictScale = Math.pow((sensitivityValue - 0.2) / 0.8, 0.4);
+      const numRandomConflicts = Math.floor(randomConflictScale * 120);
       
-      for (let i = 0; i < numRandomConflicts && i < 50; i++) { // Cap at 50 for performance
+      for (let i = 0; i < numRandomConflicts && i < 150; i++) { // Cap at 150 for performance
         const country1 = availableCountries[Math.floor(Math.random() * availableCountries.length)];
         const country2 = availableCountries[Math.floor(Math.random() * availableCountries.length)];
         if (country1 !== country2) {
           randomPairs.push([country1, country2]);
         }
       }
-      setRandomConflicts(randomPairs);
-    } else {
-      setRandomConflicts([]);
     }
+    
+    setRandomConflicts(randomPairs);
   }, [sensitivity, countries, selectedCountry]);
 
   // Calculate country centroids for beam targeting
@@ -562,33 +562,63 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
             );
           })}
           
-          {/* Random country-to-country conflicts at higher sensitivity */}
+          {/* Random country-to-country conflicts - starts after main conflicts */}
           {showConflicts && randomConflicts.map(([country1, country2], idx) => {
+            const conflictIndex = enemyCountries.length + idx;
+            if (conflictIndex >= visibleConflictCount) return null;
             if (!countryCentroids[country1] || !countryCentroids[country2]) return null;
             
             const [x1, y1] = projectToSVG(countryCentroids[country1][0], countryCentroids[country1][1], viewBoxWidth, viewBoxHeight);
             const [x2, y2] = projectToSVG(countryCentroids[country2][0], countryCentroids[country2][1], viewBoxWidth, viewBoxHeight);
             
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const cx = x1 + dx / 2 - dy * 0.2;
+            const cy = y1 + dy / 2 + dx * 0.2;
+            
             return (
               <g key={`random-conflict-${idx}`} className="animate-fade-in">
-                <line
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
+                {/* Curved missile path for random conflicts */}
+                <path
+                  d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                  fill="none"
                   stroke="#ff6600"
-                  strokeWidth="0.8"
-                  strokeDasharray="4,4"
-                  opacity="0.4"
+                  strokeWidth="1"
+                  opacity="0"
+                  style={{ filter: "drop-shadow(0 0 3px #ff6600)" }}
                 >
                   <animate
-                    attributeName="stroke-dashoffset"
+                    attributeName="opacity"
                     from="0"
-                    to="100"
-                    dur="3s"
-                    repeatCount="indefinite"
+                    to="0.5"
+                    dur="0.5s"
+                    fill="freeze"
                   />
-                </line>
+                </path>
+                
+                {/* Animated missile for random conflicts */}
+                <circle
+                  r="2"
+                  fill="#ffaa00"
+                  style={{ filter: "drop-shadow(0 0 4px #ffaa00)" }}
+                >
+                  <animateMotion
+                    dur="4s"
+                    repeatCount="indefinite"
+                    begin={`${idx * 0.1}s`}
+                  >
+                    <mpath href={`#random-path-${idx}`} />
+                  </animateMotion>
+                </circle>
+                
+                {/* Path definition for motion */}
+                <defs>
+                  <path
+                    id={`random-path-${idx}`}
+                    d={`M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`}
+                    fill="none"
+                  />
+                </defs>
               </g>
             );
           })}
