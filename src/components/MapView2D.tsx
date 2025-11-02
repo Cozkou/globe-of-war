@@ -131,13 +131,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     }
     
     setShowConflicts(true);
-    // Exponential scaling: small changes create dramatic differences
-    // 0.1 = 1-2 conflicts, 0.3 = 3-4 conflicts, 0.5+ = 5 conflicts
-    const exponentialScale = Math.pow(intensityValue, 0.4) * 15;
-    const numConflicts = Math.min(5, Math.max(1, Math.ceil(exponentialScale)));
+    const numConflicts = enemyCountries.length;
     setVisibleConflictCount(0);
     
-    // Gradually show conflicts
+    // Gradually show all conflicts
     let count = 0;
     const interval = setInterval(() => {
       count++;
@@ -145,10 +142,10 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       if (count >= numConflicts) {
         clearInterval(interval);
       }
-    }, 300);
+    }, 200); // Faster animation for many countries
     
     return () => clearInterval(interval);
-  }, [sensitivity]);
+  }, [sensitivity, enemyCountries.length]);
 
   // Map sensitivity to war level - extremely responsive to small changes
   useEffect(() => {
@@ -158,7 +155,7 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
     setWarLevel(level);
   }, [sensitivity]);
 
-  // Select random enemy countries based on war level
+  // Select enemy countries based on sensitivity - scales to ALL countries at 1.0
   useEffect(() => {
     if (countries.length === 0 || !selectedCountry) return;
     
@@ -166,10 +163,26 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
       .map(c => c.properties.name)
       .filter(name => name !== selectedCountry);
     
-    const numEnemies = warLevel; // Level 1 = 1 enemy, Level 5 = 5 enemies
+    // Dramatic scaling: each 0.1 increment adds significantly more countries
+    // 0.0-0.1 = 1 country, 0.2 = 3, 0.3 = 6, 0.5 = 15, 0.7 = 30, 1.0 = ALL
+    const totalAvailable = availableCountries.length;
+    const sensitivityValue = sensitivity[0];
+    
+    let numEnemies;
+    if (sensitivityValue >= 0.99) {
+      // At max sensitivity, target ALL countries
+      numEnemies = totalAvailable;
+    } else if (sensitivityValue < 0.01) {
+      numEnemies = 0;
+    } else {
+      // Exponential scaling for dramatic differences
+      const exponentialScale = Math.pow(sensitivityValue, 0.3);
+      numEnemies = Math.ceil(exponentialScale * totalAvailable);
+    }
+    
     const shuffled = [...availableCountries].sort(() => Math.random() - 0.5);
     setEnemyCountries(shuffled.slice(0, numEnemies));
-  }, [warLevel, countries, selectedCountry]);
+  }, [sensitivity, countries, selectedCountry]);
 
   // Calculate country centroids for beam targeting
   const countryCentroids = useMemo(() => {
@@ -528,8 +541,8 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
                   </g>
                 )}
                 
-                {/* Level 5: Counter-attack missiles from enemy */}
-                {warLevel === 5 && (
+                {/* Level 5: Counter-attack missiles from enemy - now shows at high sensitivity */}
+                {sensitivity[0] >= 0.5 && (
                   <>
                     <defs>
                       <path
@@ -793,9 +806,14 @@ export default function MapView2D({ selectedCountry }: MapView2DProps) {
               className="cursor-pointer"
             />
           </div>
-          <p className="text-xs text-center text-muted-foreground font-mono">
-            {sensitivity[0].toFixed(2)}
-          </p>
+          <div className="flex justify-between items-center text-xs">
+            <p className="text-muted-foreground font-mono">
+              {sensitivity[0].toFixed(2)}
+            </p>
+            <p className="text-primary font-mono">
+              {enemyCountries.length} {enemyCountries.length === 1 ? 'TARGET' : 'TARGETS'}
+            </p>
+          </div>
         </div>
       </div>
     </div>
