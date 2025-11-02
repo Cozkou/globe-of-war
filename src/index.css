@@ -101,6 +101,15 @@ All colors MUST be HSL.
     animation: fly-up 1s ease-in-out forwards;
   }
 
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   /* Aircraft icon hover effect */
   .aircraft-icon {
     transition: filter 0.2s ease;

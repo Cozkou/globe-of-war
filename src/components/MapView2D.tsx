@@ -205,7 +205,6 @@ export default function MapView2D({
     threats: number;
     sensitivity: number;
   }>>([]);
-  const [dashboardCountdown, setDashboardCountdown] = useState(20);
   const [showTutorial, setShowTutorial] = useState(true);
   const [positionTrail, setPositionTrail] = useState<Array<{
     x: number;
@@ -525,32 +524,9 @@ export default function MapView2D({
     // Open dashboard after game over text appears (4 seconds into explosion)
     setTimeout(() => {
       setShowThreatsDashboard(true);
-      setDashboardCountdown(20);
     }, 4000);
+  }, [isExploding]);
 
-    // Auto-close dashboard and call game over after 20 seconds
-    setTimeout(() => {
-      setShowThreatsDashboard(false);
-      if (onGameOver) {
-        onGameOver();
-      }
-    }, 24000); // 4 seconds wait + 20 seconds dashboard open
-  }, [isExploding, onGameOver]);
-
-  // Countdown timer for dashboard auto-close during game over
-  useEffect(() => {
-    if (!showThreatsDashboard || !isExploding) return;
-    const interval = setInterval(() => {
-      setDashboardCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showThreatsDashboard, isExploding]);
 
   // Generate fake error messages when sensitivity >= 0.03 (instant chaos)
   useEffect(() => {
@@ -1339,7 +1315,7 @@ export default function MapView2D({
               {isExploding ? "FINAL COMBAT REPORT" : "COMBAT STATISTICS DASHBOARD"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {isExploding ? `Game summary - Press X to restart or wait ${dashboardCountdown} seconds` : "Real-time conflict monitoring and escalation analysis"}
+              {isExploding ? "Game summary - Press X to close and restart" : "Real-time conflict monitoring and escalation analysis - Press X to close"}
             </DialogDescription>
           </DialogHeader>
           
@@ -1369,52 +1345,111 @@ export default function MapView2D({
             </div>
 
             {/* Sensitivity vs Threats Correlation Graph - LIVE TRACKING SCREEN */}
-            <div className="bg-background/50 border border-border p-6 relative">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm text-primary tracking-wider font-bold">
-                  🔴 LIVE TRACKING: YOUR THREAT POSITION
-                </h3>
-                <div className="text-xs font-mono text-muted-foreground">
-                  SENSITIVITY: {(sensitivity[0] * 1000).toFixed(0)}%
+            <div className="bg-background/50 border-2 border-primary/50 p-6 relative overflow-hidden rounded-lg" style={{
+              background: 'linear-gradient(135deg, rgba(255, 51, 51, 0.05) 0%, rgba(0, 0, 0, 0.3) 100%)',
+              boxShadow: '0 0 30px rgba(255, 51, 51, 0.2)'
+            }}>
+              {/* Animated background gradient */}
+              <div className="absolute inset-0 opacity-20" style={{
+                background: 'radial-gradient(circle at 50% 50%, rgba(255, 51, 51, 0.3) 0%, transparent 70%)',
+                animation: 'pulse 3s ease-in-out infinite'
+              }} />
+              
+              <div className="flex items-center justify-between mb-4 relative z-10">
+                <div>
+                  <h3 className="text-sm text-primary tracking-wider font-bold mb-1">
+                    🔴 LIVE TRACKING: YOUR THREAT POSITION
+                  </h3>
+                  <p className="text-[10px] text-orange-400 font-mono animate-pulse">
+                    ⚠️ EXPONENTIAL GROWTH DETECTED
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-mono text-muted-foreground">
+                    SENSITIVITY: {(sensitivity[0] * 1000).toFixed(0)}%
+                  </div>
+                  <div className="text-xs font-mono text-orange-400 font-bold">
+                    {visibleAircraft.length} THREATS
+                  </div>
                 </div>
               </div>
               
-              <div className="relative h-80 bg-background/30">
+              <div className="relative h-80 bg-background/30 rounded border border-primary/20 overflow-hidden">
                 <svg className="w-full h-full" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
                   <defs>
-                    {/* Glow effect for the curve */}
+                    {/* Enhanced glow effect for the curve */}
                     <filter id="glowEffect">
-                      <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                      <feGaussianBlur stdDeviation="6" result="coloredBlur" />
                       <feMerge>
                         <feMergeNode in="coloredBlur" />
                         <feMergeNode in="SourceGraphic" />
                       </feMerge>
                     </filter>
+                    
+                    {/* Exponential growth gradient */}
+                    <linearGradient id="exponentialGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="rgba(255, 51, 51, 0.6)" stopOpacity="0.8" />
+                      <stop offset="50%" stopColor="rgba(255, 136, 0, 0.4)" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="rgba(255, 51, 51, 0.2)" stopOpacity="0.3" />
+                    </linearGradient>
+                    
+                    {/* Curve gradient - changes color based on growth rate */}
+                    <linearGradient id="curveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#00ff00" stopOpacity="0.8" />
+                      <stop offset="30%" stopColor="#ffff00" stopOpacity="0.9" />
+                      <stop offset="60%" stopColor="#ff8800" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#ff0000" stopOpacity="1" />
+                    </linearGradient>
+                    
+                    {/* Animated glow filter */}
+                    <filter id="animatedGlow">
+                      <feGaussianBlur stdDeviation="4" result="coloredBlur">
+                        <animate attributeName="stdDeviation" values="4;8;4" dur="2s" repeatCount="indefinite" />
+                      </feGaussianBlur>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                    
+                    {/* Grid pattern */}
+                    <pattern id="gridPattern" width="90" height="125" patternUnits="userSpaceOnUse">
+                      <path d="M 90 0 L 0 0 0 125" fill="none" stroke="rgba(255, 51, 51, 0.1)" strokeWidth="1" />
+                    </pattern>
                   </defs>
+                  
+                  {/* Grid background */}
+                  <rect x="60" y="40" width="900" height="500" fill="url(#gridPattern)" opacity="0.3" />
 
                   {/* Graph boundaries: margin 60px left/bottom, 40px top/right */}
-                  {/* X: 60-960 (900px width) for sensitivity 0-0.1 */}
+                  {/* X: 60-960 (900px width) for sensitivity 0.02-0.03 (ZOOMED IN for dramatic effect) */}
                   {/* Y: 540-40 (500px height, inverted) for threats 0-max */}
 
-                  {/* Minimalist axes */}
-                  <line x1="60" y1="540" x2="960" y2="540" stroke="hsl(var(--border))" strokeWidth="2" />
-                  <line x1="60" y1="40" x2="60" y2="540" stroke="hsl(var(--border))" strokeWidth="2" />
+                  {/* Enhanced axes with glow */}
+                  <line x1="60" y1="540" x2="960" y2="540" stroke="hsl(var(--border))" strokeWidth="2.5" opacity="0.8">
+                    <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
+                  </line>
+                  <line x1="60" y1="40" x2="60" y2="540" stroke="hsl(var(--border))" strokeWidth="2.5" opacity="0.8">
+                    <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite" />
+                  </line>
 
-                  {/* X-axis labels (Radar Sensitivity) */}
+                  {/* X-axis labels (Radar Sensitivity) - Zoomed to 0.02-0.03 range with precision */}
                   {(() => {
                     const labels = [];
+                    // Show labels from 0.020 to 0.030 in increments of 0.002 (more precision)
                     for (let i = 0; i <= 5; i++) {
-                      const x = 60 + i * 180; // Every 0.02
-                      const value = (i * 0.02).toFixed(2);
+                      const x = 60 + (i / 5) * 900; // Distribute across full width
+                      const value = (0.02 + (i / 5) * 0.01).toFixed(3); // 0.020 to 0.030
                       labels.push(
                         <text 
                           key={`x-label-${i}`}
                           x={x} 
                           y="565" 
                           fill="hsl(var(--muted-foreground))" 
-                          fontSize="12" 
+                          fontSize="11" 
                           fontFamily="monospace" 
                           textAnchor="middle"
+                          opacity={i % 2 === 0 ? 1 : 0.7} // Highlight every other label
                         >
                           {value}
                         </text>
@@ -1467,13 +1502,24 @@ export default function MapView2D({
                     }
 
                     // Map points to graph coordinates based on SENSITIVITY
+                    // Zoomed to show only 0.02-0.03 range on X-axis for dramatic effect
                     const GRAPH_WIDTH = 900; // 960 - 60
-                    const sensitivityBasedPoints = visiblePoints.map(point => ({
-                      x: 60 + (point.sensitivity / 0.1) * GRAPH_WIDTH,
-                      y: 540 - (point.y / maxDisplay) * GRAPH_HEIGHT,
-                      originalY: point.y,
-                      sensitivity: point.sensitivity
-                    }));
+                    const MIN_SENSITIVITY = 0.02;
+                    const MAX_SENSITIVITY = 0.03;
+                    const SENSITIVITY_RANGE = MAX_SENSITIVITY - MIN_SENSITIVITY;
+                    
+                    const sensitivityBasedPoints = visiblePoints.map(point => {
+                      // Clamp sensitivity to visible range and normalize to 0-1
+                      const clampedSensitivity = Math.max(MIN_SENSITIVITY, Math.min(MAX_SENSITIVITY, point.sensitivity));
+                      const normalizedX = (clampedSensitivity - MIN_SENSITIVITY) / SENSITIVITY_RANGE;
+                      
+                      return {
+                        x: 60 + normalizedX * GRAPH_WIDTH,
+                        y: 540 - (point.y / maxDisplay) * GRAPH_HEIGHT,
+                        originalY: point.y,
+                        sensitivity: point.sensitivity
+                      };
+                    });
 
                     // Sort by sensitivity to ensure proper line drawing
                     sensitivityBasedPoints.sort((a, b) => a.sensitivity - b.sensitivity);
@@ -1490,93 +1536,420 @@ export default function MapView2D({
 
                     // Calculate animation progress (0 to 1)
                     const animationProgress = Math.min(visibleCount / positionTrail.length, 1);
+                    
+                    // Detect exponential growth zones (steep increases)
+                    const growthZones: Array<{startIdx: number, endIdx: number, intensity: number}> = [];
+                    for (let i = 2; i < sensitivityBasedPoints.length; i++) {
+                      const prev = sensitivityBasedPoints[i - 1];
+                      const curr = sensitivityBasedPoints[i];
+                      const prev2 = sensitivityBasedPoints[i - 2];
+                      
+                      if (prev2 && prev && curr) {
+                        const delta1 = curr.y - prev.y;
+                        const delta2 = prev.y - prev2.y;
+                        // If growth rate is increasing (second derivative is positive), it's exponential
+                        if (delta1 > 0 && delta2 > 0 && delta1 > delta2 * 1.5) {
+                          // Check if we should merge with previous zone
+                          if (growthZones.length > 0 && i - growthZones[growthZones.length - 1].endIdx < 3) {
+                            growthZones[growthZones.length - 1].endIdx = i;
+                            growthZones[growthZones.length - 1].intensity = Math.max(growthZones[growthZones.length - 1].intensity, delta1 / 10);
+                          } else {
+                            growthZones.push({ startIdx: i - 2, endIdx: i, intensity: delta1 / 10 });
+                          }
+                        }
+                      }
+                    }
+
+                    // Create area fill path for exponential growth visualization
+                    const areaPathData = sensitivityBasedPoints.length > 0 
+                      ? `${pathData} L ${sensitivityBasedPoints[sensitivityBasedPoints.length - 1].x} 540 L ${sensitivityBasedPoints[0].x} 540 Z`
+                      : '';
 
                     return (
                       <>
                         {/* Y-axis labels */}
                         {yLabels}
 
-                        {/* Animated threat curve with glow */}
-                        <path
-                          d={pathData}
-                          fill="none"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          filter="url(#glowEffect)"
-                          style={{
-                            strokeDasharray: '1000',
-                            strokeDashoffset: 1000 * (1 - animationProgress),
-                            transition: 'stroke-dashoffset 0.5s ease-out'
-                          }}
-                        />
-                        <path
-                          d={pathData}
-                          fill="none"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{
-                            strokeDasharray: '1000',
-                            strokeDashoffset: 1000 * (1 - animationProgress),
-                            transition: 'stroke-dashoffset 0.5s ease-out'
-                          }}
-                        />
+                        {/* Area fill under curve - shows exponential growth visually */}
+                        {areaPathData && (
+                          <path
+                            d={areaPathData}
+                            fill="url(#exponentialGradient)"
+                            opacity="0.4"
+                            style={{
+                              clipPath: `inset(0 ${100 * (1 - animationProgress)}% 0 0)`,
+                              transition: 'clip-path 0.5s ease-out'
+                            }}
+                          />
+                        )}
 
-                        {/* Current position marker */}
+                        {/* Exponential growth zone highlights */}
+                        {growthZones.map((zone, zoneIdx) => {
+                          const startPoint = sensitivityBasedPoints[zone.startIdx];
+                          const endPoint = sensitivityBasedPoints[zone.endIdx];
+                          if (!startPoint || !endPoint) return null;
+                          
+                          return (
+                            <rect
+                              key={`zone-${zoneIdx}`}
+                              x={startPoint.x}
+                              y={Math.min(startPoint.y, endPoint.y) - 10}
+                              width={endPoint.x - startPoint.x}
+                              height={Math.abs(endPoint.y - startPoint.y) + 20}
+                              fill="rgba(255, 0, 0, 0.15)"
+                              opacity="0"
+                            >
+                              <animate
+                                attributeName="opacity"
+                                values="0;0.3;0"
+                                dur="2s"
+                                begin={`${zoneIdx * 0.2}s`}
+                                repeatCount="indefinite"
+                              />
+                            </rect>
+                          );
+                        })}
+
+                        {/* Animated threat curve with gradient and glow */}
+                        <path
+                          d={pathData}
+                          fill="none"
+                          stroke="url(#curveGradient)"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          filter="url(#animatedGlow)"
+                          opacity="0"
+                          style={{
+                            strokeDasharray: '2000',
+                            strokeDashoffset: 2000 * (1 - animationProgress),
+                            transition: 'stroke-dashoffset 0.5s ease-out, opacity 1s ease-out'
+                          }}
+                        >
+                          <animate
+                            attributeName="opacity"
+                            from="0"
+                            to="1"
+                            dur="1s"
+                            fill="freeze"
+                          />
+                        </path>
+                        <path
+                          d={pathData}
+                          fill="none"
+                          stroke="url(#curveGradient)"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity="0"
+                          style={{
+                            strokeDasharray: '2000',
+                            strokeDashoffset: 2000 * (1 - animationProgress),
+                            transition: 'stroke-dashoffset 0.5s ease-out, opacity 1s ease-out'
+                          }}
+                        >
+                          <animate
+                            attributeName="opacity"
+                            from="0"
+                            to="1"
+                            dur="1.5s"
+                            fill="freeze"
+                          />
+                        </path>
+
+                        {/* Animated data points along the curve */}
+                        {sensitivityBasedPoints.slice(1, -1).map((point, idx) => {
+                          // Only show every 10th point to avoid clutter
+                          if (idx % 10 !== 0) return null;
+                          if (idx / 10 > animationProgress * (sensitivityBasedPoints.length / 10)) return null;
+                          
+                          return (
+                            <circle
+                              key={`point-${idx}`}
+                              cx={point.x}
+                              cy={point.y}
+                              r="2"
+                              fill="rgba(255, 51, 51, 0.6)"
+                              opacity="0"
+                            >
+                              <animate
+                                attributeName="opacity"
+                                values="0;1;0.6"
+                                dur="1s"
+                                begin={`${idx * 0.1}s`}
+                                fill="freeze"
+                              />
+                              <animate
+                                attributeName="r"
+                                values="2;4;2"
+                                dur="2s"
+                                begin={`${idx * 0.1}s`}
+                                repeatCount="indefinite"
+                              />
+                            </circle>
+                          );
+                        })}
+
+                        {/* Current position marker with enhanced animation */}
                         {(() => {
                           const lastPoint = sensitivityBasedPoints[sensitivityBasedPoints.length - 1];
                           if (!lastPoint || visibleCount < positionTrail.length) return null;
                           
+                          // Calculate growth rate for visual feedback
+                          const recentPoints = sensitivityBasedPoints.slice(-5);
+                          const growthRate = recentPoints.length > 1 
+                            ? (recentPoints[recentPoints.length - 1].originalY - recentPoints[0].originalY) / recentPoints.length
+                            : 0;
+                          const isExponential = growthRate > 5;
+                          
                           return (
-                            <circle
-                              cx={lastPoint.x}
-                              cy={lastPoint.y}
-                              r="5"
-                              fill="hsl(var(--primary))"
-                              stroke="hsl(var(--background))"
-                              strokeWidth="2"
-                            >
-                              <animate
-                                attributeName="r"
-                                values="5;8;5"
-                                dur="1.5s"
-                                repeatCount="indefinite"
-                              />
-                            </circle>
+                            <g>
+                              {/* Outer pulsing ring */}
+                              <circle
+                                cx={lastPoint.x}
+                                cy={lastPoint.y}
+                                r="12"
+                                fill="none"
+                                stroke={isExponential ? "#ff0000" : "hsl(var(--primary))"}
+                                strokeWidth="2"
+                                opacity="0.5"
+                              >
+                                <animate
+                                  attributeName="r"
+                                  values="8;16;8"
+                                  dur="1s"
+                                  repeatCount="indefinite"
+                                />
+                                <animate
+                                  attributeName="opacity"
+                                  values="0.5;0;0.5"
+                                  dur="1s"
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                              
+                              {/* Main marker */}
+                              <circle
+                                cx={lastPoint.x}
+                                cy={lastPoint.y}
+                                r="6"
+                                fill={isExponential ? "#ff0000" : "hsl(var(--primary))"}
+                                stroke="hsl(var(--background))"
+                                strokeWidth="2"
+                                filter="url(#glowEffect)"
+                              >
+                                <animate
+                                  attributeName="r"
+                                  values="6;10;6"
+                                  dur="1.5s"
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                              
+                              {/* Inner pulse */}
+                              <circle
+                                cx={lastPoint.x}
+                                cy={lastPoint.y}
+                                r="3"
+                                fill="#ffffff"
+                                opacity="0.8"
+                              >
+                                <animate
+                                  attributeName="opacity"
+                                  values="0.8;0;0.8"
+                                  dur="1s"
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                              
+                              {/* Exponential growth warning indicator */}
+                              {isExponential && (
+                                <text
+                                  x={lastPoint.x}
+                                  y={lastPoint.y - 20}
+                                  fill="#ff0000"
+                                  fontSize="10"
+                                  fontFamily="monospace"
+                                  fontWeight="bold"
+                                  textAnchor="middle"
+                                  opacity="0"
+                                >
+                                  <animate
+                                    attributeName="opacity"
+                                    values="0;1;1;0"
+                                    dur="2s"
+                                    repeatCount="indefinite"
+                                  />
+                                  ⚠️ EXPONENTIAL
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })()}
+                        
+                        {/* Exponential growth annotation */}
+                        {visibleCount > 10 && (() => {
+                          const lastPoints = sensitivityBasedPoints.slice(-10);
+                          if (lastPoints.length < 2) return null;
+                          
+                          const avgGrowth = lastPoints.reduce((sum, p, i) => {
+                            if (i === 0) return sum;
+                            return sum + (p.originalY - lastPoints[i - 1].originalY);
+                          }, 0) / (lastPoints.length - 1);
+                          
+                          const isExponential = avgGrowth > 3;
+                          if (!isExponential) return null;
+                          
+                          const annotationX = sensitivityBasedPoints[sensitivityBasedPoints.length - 1].x - 100;
+                          const annotationY = 100;
+                          
+                          return (
+                            <g>
+                              {/* Arrow pointing to steep section */}
+                              <line
+                                x1={annotationX + 50}
+                                y1={annotationY + 40}
+                                x2={annotationX + 50}
+                                y2={Math.min(...sensitivityBasedPoints.slice(-5).map(p => p.y)) - 20}
+                                stroke="#ff0000"
+                                strokeWidth="2"
+                                strokeDasharray="5,5"
+                                opacity="0.6"
+                              >
+                                <animate
+                                  attributeName="opacity"
+                                  values="0.6;0.2;0.6"
+                                  dur="2s"
+                                  repeatCount="indefinite"
+                                />
+                              </line>
+                              
+                              {/* Warning box */}
+                              <rect
+                                x={annotationX}
+                                y={annotationY}
+                                width="200"
+                                height="50"
+                                fill="rgba(255, 0, 0, 0.2)"
+                                stroke="#ff0000"
+                                strokeWidth="2"
+                                rx="5"
+                                opacity="0"
+                              >
+                                <animate
+                                  attributeName="opacity"
+                                  values="0;0.8;0.8;0"
+                                  dur="3s"
+                                  repeatCount="indefinite"
+                                />
+                              </rect>
+                              
+                              <text
+                                x={annotationX + 100}
+                                y={annotationY + 25}
+                                fill="#ff0000"
+                                fontSize="12"
+                                fontFamily="monospace"
+                                fontWeight="bold"
+                                textAnchor="middle"
+                                opacity="0"
+                              >
+                                <animate
+                                  attributeName="opacity"
+                                  values="0;1;1;0"
+                                  dur="3s"
+                                  repeatCount="indefinite"
+                                />
+                                EXPONENTIAL GROWTH
+                              </text>
+                              <text
+                                x={annotationX + 100}
+                                y={annotationY + 40}
+                                fill="#ff8800"
+                                fontSize="10"
+                                fontFamily="monospace"
+                                textAnchor="middle"
+                                opacity="0"
+                              >
+                                <animate
+                                  attributeName="opacity"
+                                  values="0;1;1;0"
+                                  dur="3s"
+                                  begin="0.5s"
+                                  repeatCount="indefinite"
+                                />
+                                Growth Rate: {avgGrowth.toFixed(1)}x
+                              </text>
+                            </g>
                           );
                         })()}
                       </>
                     );
                   })()}
                   
-                  {/* Axis titles */}
+                  {/* Enhanced axis titles */}
                   <text 
                     x="510" 
                     y="590" 
                     fill="hsl(var(--muted-foreground))" 
-                    fontSize="13" 
+                    fontSize="14" 
                     fontFamily="monospace" 
                     textAnchor="middle" 
                     fontWeight="bold"
+                    opacity="0.9"
                   >
-                    RADAR SENSITIVITY →
+                    RADAR SENSITIVITY (0.020 - 0.030) →
                   </text>
                   <text 
                     x="20" 
                     y="290" 
                     fill="hsl(var(--muted-foreground))" 
-                    fontSize="13" 
+                    fontSize="14" 
                     fontFamily="monospace" 
                     textAnchor="middle" 
                     fontWeight="bold" 
                     transform="rotate(-90, 20, 290)"
+                    opacity="0.9"
                   >
-                    ← THREATS
+                    ← THREATS DETECTED
                   </text>
                 </svg>
+              </div>
+              
+              {/* Graph footer with growth indicator */}
+              <div className="mt-4 flex items-center justify-between text-xs font-mono relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-muted-foreground">Low Threat</span>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 ml-4" />
+                  <span className="text-muted-foreground">Moderate</span>
+                  <div className="w-3 h-3 rounded-full bg-orange-500 ml-4" />
+                  <span className="text-muted-foreground">High</span>
+                  <div className="w-3 h-3 rounded-full bg-red-500 ml-4 animate-pulse" />
+                  <span className="text-muted-foreground">Critical</span>
+                </div>
+                {(() => {
+                  if (positionTrail.length < 5) return null;
+                  const recentGrowth = positionTrail.slice(-5);
+                  const growthRate = recentGrowth.reduce((sum, p, i) => {
+                    if (i === 0) return sum;
+                    return sum + (p.y - recentGrowth[i - 1].y);
+                  }, 0) / (recentGrowth.length - 1);
+                  
+                  if (growthRate <= 0) return null;
+                  
+                  return (
+                    <div className="flex items-center gap-2">
+                      <span className="text-orange-400">Growth Rate:</span>
+                      <span className={`font-bold ${growthRate > 5 ? 'text-red-500 animate-pulse' : 'text-orange-400'}`}>
+                        {growthRate.toFixed(1)}x
+                      </span>
+                      {growthRate > 5 && (
+                        <span className="text-red-500 text-[10px] animate-pulse">⚠️ EXPONENTIAL</span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
