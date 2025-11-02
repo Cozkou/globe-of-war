@@ -209,6 +209,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   const [dashboardCountdown, setDashboardCountdown] = useState(20);
   const [showTutorial, setShowTutorial] = useState(true);
   const [positionTrail, setPositionTrail] = useState<Array<{ x: number; y: number; sensitivity: number; timestamp: number }>>([]);
+  const [graphStartTime, setGraphStartTime] = useState<number | null>(null);
+  const [visibleTrailPoints, setVisibleTrailPoints] = useState(0);
 
   // Filter aircraft based on THREAT LEVEL - only show planes whose threat level is within sensitivity
   const visibleAircraft = useMemo(() => {
@@ -409,11 +411,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
   // Track position trail for graph visualization with mock data
   useEffect(() => {
     const currentSens = sensitivity[0];
+    const now = Date.now();
+
+    // Initialize graph start time on first point
+    setGraphStartTime(prev => prev || now);
 
     // Calculate position on graph with mock y values
-    // X-axis: sensitivity (0-1) scaled to 0-800
-    // Y-axis: random/mock data that generally trends upward with some randomness
-    const x = currentSens * 800;
+    // X-axis will be based on time/index (calculated later)
+    const x = 0; // Will be calculated based on index/time
 
     // Mock Y value: generally increases with sensitivity but has random spikes
     // Base trend: increases from 0 to 500 as sensitivity goes from 0 to 1
@@ -423,12 +428,30 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     const y = Math.max(0, Math.min(600, baseValue + randomVariation));
 
     setPositionTrail(prev => {
-      const newPoint = { x, y, sensitivity: currentSens, timestamp: Date.now() };
-      // Keep last 200 points for better graph visualization
-      const updated = [...prev, newPoint].slice(-200);
+      const newPoint = { x, y, sensitivity: currentSens, timestamp: now };
+      // Keep last 1000 points for wider graph
+      const updated = [...prev, newPoint].slice(-1000);
       return updated;
     });
   }, [sensitivity]);
+
+  // Animate trail points appearing one by one (1 per second)
+  useEffect(() => {
+    if (positionTrail.length === 0) return;
+
+    const interval = setInterval(() => {
+      setVisibleTrailPoints(prev => {
+        // Each point appears 1 second after the previous
+        // Calculate how many points should be visible based on elapsed time
+        if (!graphStartTime) return 0;
+        const elapsedSeconds = (Date.now() - graphStartTime) / 1000;
+        const targetVisible = Math.min(Math.floor(elapsedSeconds), positionTrail.length);
+        return targetVisible;
+      });
+    }, 100); // Check every 100ms for smooth animation
+
+    return () => clearInterval(interval);
+  }, [positionTrail.length, graphStartTime]);
 
   // Update conflicts when sensitivity changes
   useEffect(() => {
@@ -1821,28 +1844,30 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                 <svg
                   className="w-full h-full relative z-10"
                   viewBox={(() => {
-                    // Calculate current position to lock camera on the point
-                    const currentSens = sensitivity[0];
+                    // Get visible points count
+                    const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
                     
-                    // Get current point from positionTrail (latest point)
-                    const currentPoint = positionTrail[positionTrail.length - 1];
-                    
-                    if (!currentPoint) {
+                    if (visibleCount === 0) {
                       // Fallback if no data yet
-                      return '0 0 800 600';
+                      return '0 0 1200 600';
                     }
 
-                    // Lock viewport to center on the current point
-                    const viewWidth = 500;
+                    // Calculate current X position based on time/index
+                    const currentX = (visibleCount - 1) * 10;
+                    const currentPoint = positionTrail[positionTrail.length - 1];
+                    const currentY = currentPoint ? currentPoint.y : 300;
+
+                    // Lock viewport to center on the current point, wider X for time-based
+                    const viewWidth = 800; // Much wider viewport for time-based graph
                     const viewHeight = 400;
-                    const centerX = currentPoint.x - viewWidth / 2;
-                    const centerY = currentPoint.y - viewHeight / 2;
+                    const centerX = Math.max(viewWidth / 2, currentX - viewWidth / 2); // Don't go negative
+                    const centerY = currentY - viewHeight / 2;
 
                     return `${centerX} ${centerY} ${viewWidth} ${viewHeight}`;
                   })()}
                   preserveAspectRatio="xMidYMid meet"
                   style={{
-                    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: 'all 0.1s linear' // Smooth following animation
                   }}
                 >
                   <defs>
@@ -1892,32 +1917,44 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                   
                   {/* Labels - positioned based on current view */}
                   {(() => {
-                    const currentPoint = positionTrail[positionTrail.length - 1];
-                    if (!currentPoint) return null;
+                    const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
+                    if (visibleCount === 0) return null;
                     
-                    const labelX = currentPoint.x - 240;
-                    const labelY = currentPoint.y + 50;
+                    const currentX = (visibleCount - 1) * 10;
+                    const currentPoint = positionTrail[positionTrail.length - 1];
+                    const currentY = currentPoint ? currentPoint.y : 300;
+                    
+                    const labelX = Math.max(50, currentX - 300);
+                    const labelY = currentY + 50;
                     
                     return (
                       <g>
-                        <text x={labelX} y={labelY} fill="#999" fontSize="14" fontFamily="monospace">RADAR SENSITIVITY →</text>
+                        <text x={labelX} y={labelY} fill="#999" fontSize="14" fontFamily="monospace">TIME →</text>
                         <text x={labelX - 80} y={labelY - 200} fill="#999" fontSize="14" fontFamily="monospace" transform="rotate(-90, 0, 0)">THREAT LEVEL ↑</text>
                       </g>
                     );
                   })()}
 
-                  {/* MOTION TRAIL - Shows path history */}
+                  {/* MOTION TRAIL - Shows path history with smooth time-based animation */}
                   {(() => {
                     if (positionTrail.length < 2) return null;
 
-                    const now = Date.now();
-                    const maxAge = 30000; // 30 seconds trail
+                    // Get visible points only (animated reveal)
+                    const visiblePoints = positionTrail.slice(0, visibleTrailPoints);
+                    
+                    // Calculate X positions based on time/index (wider graph - 10px per second)
+                    const timeBasedPoints = visiblePoints.map((point, idx) => ({
+                      ...point,
+                      x: idx * 10 // Each point is 10px wide on X-axis (represents 1 second)
+                    }));
+
+                    if (timeBasedPoints.length < 2) return null;
 
                     return (
                       <>
                         {/* Trail path */}
                         <path
-                          d={positionTrail.map((point, idx) =>
+                          d={timeBasedPoints.map((point, idx) =>
                             `${idx === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
                           ).join(' ')}
                           fill="none"
@@ -1930,7 +1967,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
 
                         {/* Glow effect on trail */}
                         <path
-                          d={positionTrail.map((point, idx) =>
+                          d={timeBasedPoints.map((point, idx) =>
                             `${idx === 0 ? 'M' : 'L'} ${point.x} ${point.y}`
                           ).join(' ')}
                           fill="none"
@@ -1942,11 +1979,9 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                           filter="url(#glowEffect)"
                         />
 
-                        {/* Trail points with fade-out effect */}
-                        {positionTrail.map((point, idx) => {
-                          const age = now - point.timestamp;
-                          const opacity = Math.max(0.1, 1 - (age / maxAge));
-                          const isRecent = idx >= positionTrail.length - 5;
+                        {/* Trail points */}
+                        {timeBasedPoints.map((point, idx) => {
+                          const isRecent = idx >= timeBasedPoints.length - 5;
 
                           return (
                             <g key={`trail-${idx}`}>
@@ -1956,7 +1991,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                                 cy={point.y}
                                 r={isRecent ? "4" : "2"}
                                 fill="#00ffff"
-                                opacity={opacity * 0.6}
+                                opacity="0.6"
                               />
                               {/* Glow for recent points */}
                               {isRecent && (
@@ -1967,7 +2002,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                                   fill="none"
                                   stroke="#00ffff"
                                   strokeWidth="1"
-                                  opacity={opacity * 0.3}
+                                  opacity="0.3"
                                 />
                               )}
                             </g>
@@ -1975,8 +2010,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                         })}
 
                         {/* Direction indicators (arrows showing movement direction) */}
-                        {positionTrail.length > 5 && (() => {
-                          const recentPoints = positionTrail.slice(-10);
+                        {timeBasedPoints.length > 5 && (() => {
+                          const recentPoints = timeBasedPoints.slice(-10);
                           const arrows = [];
 
                           for (let i = 1; i < recentPoints.length; i += 2) {
@@ -2010,37 +2045,41 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                     const currentPoint = positionTrail[positionTrail.length - 1];
                     if (!currentPoint) return null;
 
+                    // Calculate current X based on visible points count
+                    const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
+                    const currentX = (visibleCount - 1) * 10;
+
                     return (
                       <>
                         {/* Larger crosshair targeting reticle */}
-                        <circle cx={currentPoint.x} cy={currentPoint.y} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
+                        <circle cx={currentX} cy={currentPoint.y} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
                           <animate attributeName="r" values="40;50;40" dur="2s" repeatCount="indefinite" />
                           <animate attributeName="opacity" values="0.6;0.3;0.6" dur="2s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={currentPoint.x} cy={currentPoint.y} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
+                        <circle cx={currentX} cy={currentPoint.y} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
 
                         {/* Crosshair lines */}
-                        <line x1={currentPoint.x - 55} y1={currentPoint.y} x2={currentPoint.x - 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentPoint.x + 55} y1={currentPoint.y} x2={currentPoint.x + 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentPoint.x} y1={currentPoint.y - 55} x2={currentPoint.x} y2={currentPoint.y - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentPoint.x} y1={currentPoint.y + 55} x2={currentPoint.x} y2={currentPoint.y + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX - 55} y1={currentPoint.y} x2={currentX - 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX + 55} y1={currentPoint.y} x2={currentX + 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX} y1={currentPoint.y - 55} x2={currentX} y2={currentPoint.y - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX} y1={currentPoint.y + 55} x2={currentX} y2={currentPoint.y + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
 
                         {/* Central point - pulsing */}
-                        <circle cx={currentPoint.x} cy={currentPoint.y} r="12" fill="#ffff00" opacity="0.9">
+                        <circle cx={currentX} cy={currentPoint.y} r="12" fill="#ffff00" opacity="0.9">
                           <animate attributeName="r" values="12;18;12" dur="1s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={currentPoint.x} cy={currentPoint.y} r="6" fill="#ffffff" />
+                        <circle cx={currentX} cy={currentPoint.y} r="6" fill="#ffffff" />
 
                         {/* Position info label */}
                         <text 
-                          x={currentPoint.x + 80} 
+                          x={currentX + 80} 
                           y={currentPoint.y} 
                           fill="#00ffff" 
                           fontSize="16" 
                           fontFamily="monospace" 
                           fontWeight="bold"
                         >
-                          X: {(currentPoint.x).toFixed(0)} | Y: {(currentPoint.y).toFixed(0)}
+                          Time: {(currentX / 10).toFixed(0)}s | Y: {(currentPoint.y).toFixed(0)}
                         </text>
                       </>
                     );
