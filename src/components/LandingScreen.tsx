@@ -33,7 +33,7 @@ function BackgroundGlobe() {
   const globeRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
   const [countries, setCountries] = useState<any[]>([]);
-  const radius = 2;
+  const radius = 1.5;
   
   useFrame(() => {
     if (groupRef.current) {
@@ -200,10 +200,10 @@ export default function LandingScreen({ onStart }: LandingScreenProps) {
 
       {/* 3D Spinning Globe at bottom */}
       <div 
-        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[50vh]'}`}
+        className={`absolute bottom-0 left-0 right-0 pointer-events-none transition-all duration-[1500ms] ease-out z-10 ${isAnimating ? 'translate-y-[-50vh] scale-110' : 'translate-y-[40vh]'}`}
         style={{ height: '100vh' }}
       >
-        <Canvas camera={{ position: [0, 0, 4], fov: 45 }} gl={{ alpha: true }}>
+        <Canvas camera={{ position: [0, 0, 3.5], fov: 45 }} gl={{ alpha: true }}>
           
           <ambientLight intensity={0.3} />
           <pointLight position={[10, 10, 10]} intensity={1} color="#ff0000" />
