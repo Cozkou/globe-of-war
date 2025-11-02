@@ -512,15 +512,15 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           ))}
           
           {/* GAME OVER text */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto" style={{
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto z-50" style={{
             animation: 'gameOverFade 4s ease-out forwards',
             animationDelay: '1.5s',
             opacity: 0
           }}>
-            <h1 className="text-9xl font-bold text-red-600 tracking-[0.5em]" style={{
+            <h1 className="text-8xl md:text-9xl font-bold text-red-600 tracking-[0.5em]" style={{
               textShadow: '0 0 40px rgba(255, 0, 0, 1), 0 0 80px rgba(255, 0, 0, 0.8)',
               animation: 'gameOverPulse 1s ease-in-out infinite',
-              animationDelay: '2s'
+              animationDelay: '2.5s'
             }}>
               GAME OVER
             </h1>
@@ -590,9 +590,10 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
               
               @keyframes gameOverFade {
                 0% { opacity: 0; transform: scale(0.5); }
-                30% { opacity: 1; transform: scale(1.2); }
-                50% { opacity: 1; transform: scale(1); }
-                100% { opacity: 1; transform: scale(1); }
+                20% { opacity: 1; transform: scale(1.2); }
+                40% { opacity: 1; transform: scale(1); }
+                85% { opacity: 1; transform: scale(1); }
+                100% { opacity: 0; transform: scale(0.8); }
               }
               
               @keyframes gameOverPulse {
@@ -673,8 +674,8 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           {countries.map((country) => renderCountry(country, viewBoxWidth, viewBoxHeight))}
           
           {/* Spinning radar on selected country */}
-          {selectedCountry && countryCentroids[selectedCountry] && (
-            <g style={{ zIndex: 9999 }}>
+          {selectedCountry && countryCentroids[selectedCountry] && !isExploding && (
+            <g style={{ position: 'relative', zIndex: 9999 }}>
               {(() => {
                 const [cx, cy] = projectToSVG(
                   countryCentroids[selectedCountry][0],
@@ -1146,13 +1147,16 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
             <p>
-              Welcome to the War Protocol simulation. You have selected your nation and are now viewing the global theater of operations.
+              Welcome to the War Protocol simulation. You are viewing the global theater of operations for <span className="text-primary">{selectedCountry}</span>.
+            </p>
+            <p className="text-xs text-primary/80">
+              <strong>WARNING:</strong> This is a chaos theory simulation. Small adjustments to the sensitivity slider create exponentially catastrophic outcomes.
             </p>
             <p>
-              This strategic interface allows you to monitor your country's position and prepare for engagement.
+              The timer represents global stability. As you increase sensitivity, conflicts escalate rapidly and the countdown accelerates. The slightest change can trigger worldwide devastation.
             </p>
             <p className="text-xs text-primary tracking-wider text-glow mt-4">
-              PREPARE FOR WAR.
+              ONE ADJUSTMENT. TOTAL ANNIHILATION.
             </p>
           </div>
         </DialogContent>

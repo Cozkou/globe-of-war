@@ -55,7 +55,7 @@ const Index = () => {
             <DialogHeader>
               <DialogTitle className="text-primary text-sm tracking-wider">ABOUT SKYTRACK</DialogTitle>
               <DialogDescription className="text-muted-foreground text-xs leading-relaxed pt-2">
-                SkyTrack is a real-time global aircraft tracking application. Select a country to view live aircraft positions and flight data within that region. The radar interface displays aircraft movements with detailed information including altitude, speed, and flight paths.
+                SkyTrack is a real-time global aircraft tracking application powered by live data. Select any country on the globe to view aircraft positions and flight information within that region. The 3D globe interface provides an immersive way to explore worldwide air traffic patterns.
               </DialogDescription>
             </DialogHeader>
           </DialogContent>
