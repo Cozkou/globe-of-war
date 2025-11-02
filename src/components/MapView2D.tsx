@@ -408,7 +408,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     return () => clearInterval(interval);
   }, [enemyCountries.length, chainConflicts.length, randomConflicts.length, visibleAircraft.length, sensitivity]);
 
-  // Track position trail for graph visualization with mock data
+  // Track position trail for graph visualization with real threat data
   useEffect(() => {
     const currentSens = sensitivity[0];
     const now = Date.now();
@@ -416,16 +416,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
     // Initialize graph start time on first point
     setGraphStartTime(prev => prev || now);
 
-    // Calculate position on graph with mock y values
+    // Calculate position on graph
     // X-axis will be based on time/index (calculated later)
     const x = 0; // Will be calculated based on index/time
 
-    // Mock Y value: generally increases with sensitivity but has random spikes
-    // Base trend: increases from 0 to 500 as sensitivity goes from 0 to 1
-    const baseValue = currentSens * 500;
-    // Add randomness: ±30% variation
-    const randomVariation = (Math.random() - 0.5) * 150;
-    const y = Math.max(0, Math.min(600, baseValue + randomVariation));
+    // Y value: number of threats detected at this moment
+    // This is the actual count of visible aircraft that appeared on screen
+    const threatCount = visibleAircraft.length;
+    const y = threatCount;
 
     setPositionTrail(prev => {
       const newPoint = { x, y, sensitivity: currentSens, timestamp: now };
@@ -433,7 +431,7 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
       const updated = [...prev, newPoint].slice(-1000);
       return updated;
     });
-  }, [sensitivity]);
+  }, [sensitivity, visibleAircraft.length]);
 
   // Animate trail points appearing one by one (1 per second)
   useEffect(() => {
@@ -1784,26 +1782,28 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
 
                 {/* Threat Level Indicator */}
                 {(() => {
-                  // Get current threat level from latest position trail point
+                  // Get current threat count
                   const currentPoint = positionTrail[positionTrail.length - 1];
-                  const threatY = currentPoint ? currentPoint.y : 0;
+                  const threatCount = currentPoint ? currentPoint.y : 0;
                   
-                  // Normalize Y to 0-1 scale (0-600 range)
-                  const normalizedThreat = threatY / 600;
+                  // Normalize based on max threat count
+                  const visiblePoints = positionTrail.slice(0, Math.min(visibleTrailPoints, positionTrail.length));
+                  const maxY = Math.max(...visiblePoints.map(p => p.y), 1);
+                  const normalizedThreat = maxY > 0 ? threatCount / maxY : 0;
                   
                   let actualThreats = visibleAircraft.length + enemyCountries.length + chainConflicts.length + randomConflicts.length;
 
-                  const threatLevel = normalizedThreat === 0 ? "SAFE" :
-                                     normalizedThreat < 0.2 ? "LOW" :
-                                     normalizedThreat < 0.4 ? "MODERATE" :
-                                     normalizedThreat < 0.6 ? "HIGH" :
-                                     normalizedThreat < 0.8 ? "CRITICAL" : "MAXIMUM";
+                  const threatLevel = threatCount === 0 ? "SAFE" :
+                                     threatCount < 10 ? "LOW" :
+                                     threatCount < 50 ? "MODERATE" :
+                                     threatCount < 100 ? "HIGH" :
+                                     threatCount < 200 ? "CRITICAL" : "MAXIMUM";
 
-                  const threatColor = normalizedThreat === 0 ? "#00ff00" :
-                                     normalizedThreat < 0.2 ? "#88ff00" :
-                                     normalizedThreat < 0.4 ? "#ffff00" :
-                                     normalizedThreat < 0.6 ? "#ffaa00" :
-                                     normalizedThreat < 0.8 ? "#ff6600" : "#ff0000";
+                  const threatColor = threatCount === 0 ? "#00ff00" :
+                                     threatCount < 10 ? "#88ff00" :
+                                     threatCount < 50 ? "#ffff00" :
+                                     threatCount < 100 ? "#ffaa00" :
+                                     threatCount < 200 ? "#ff6600" : "#ff0000";
 
                   return (
                     <div className="absolute top-2 left-2 right-2 z-40 flex justify-between items-start">
@@ -1821,12 +1821,14 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
 
                 {/* Dynamic Background - Changes color based on threat level */}
                 {(() => {
-                  // Get current threat level from latest position trail point
+                  // Get current threat count
                   const currentPoint = positionTrail[positionTrail.length - 1];
-                  const threatY = currentPoint ? currentPoint.y : 0;
+                  const threatCount = currentPoint ? currentPoint.y : 0;
                   
-                  // Normalize Y to 0-1 scale (0-600 range)
-                  const normalizedThreat = threatY / 600;
+                  // Normalize based on max threat count
+                  const visiblePoints = positionTrail.slice(0, Math.min(visibleTrailPoints, positionTrail.length));
+                  const maxY = Math.max(...visiblePoints.map(p => p.y), 1);
+                  const normalizedThreat = maxY > 0 ? threatCount / maxY : 0;
 
                   const bgColor = normalizedThreat === 0 ? "rgba(0, 50, 0, 0.3)" :
                                  normalizedThreat < 0.2 ? "rgba(50, 50, 0, 0.3)" :
@@ -1849,21 +1851,21 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                     
                     if (visibleCount === 0) {
                       // Fallback if no data yet
-                      return '0 0 1200 600';
+                      return '0 -400 1200 800';
                     }
 
                     // Calculate current X position based on time/index
                     const currentX = (visibleCount - 1) * 10;
-                    const currentPoint = positionTrail[positionTrail.length - 1];
-                    const currentY = currentPoint ? currentPoint.y : 300;
 
-                    // Lock viewport to center on the current point, wider X for time-based
+                    // Fixed viewport that scales Y axis dynamically
+                    // Y axis: 0 at bottom, max threat count at top
                     const viewWidth = 800; // Much wider viewport for time-based graph
-                    const viewHeight = 400;
+                    const viewHeight = 600;
+                    
+                    // Center on current X position, keep Y fixed
                     const centerX = Math.max(viewWidth / 2, currentX - viewWidth / 2); // Don't go negative
-                    const centerY = currentY - viewHeight / 2;
 
-                    return `${centerX} ${centerY} ${viewWidth} ${viewHeight}`;
+                    return `${centerX} -${viewHeight / 2} ${viewWidth} ${viewHeight}`;
                   })()}
                   preserveAspectRatio="xMidYMid meet"
                   style={{
@@ -1915,43 +1917,62 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                   <line x1="-1000" y1="0" x2="1000" y2="0" stroke="rgba(255,51,51,0.3)" strokeWidth="2" />
                   <line x1="0" y1="-1000" x2="0" y2="1000" stroke="rgba(255,51,51,0.3)" strokeWidth="2" />
                   
-                  {/* Labels - positioned based on current view */}
+                  {/* Dynamic Y-axis labels and trail - scaled to fit fixed graph height */}
                   {(() => {
                     const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
                     if (visibleCount === 0) return null;
                     
-                    const currentX = (visibleCount - 1) * 10;
-                    const currentPoint = positionTrail[positionTrail.length - 1];
-                    const currentY = currentPoint ? currentPoint.y : 300;
+                    // Calculate max Y value from visible points (actual threat count)
+                    const visiblePoints = positionTrail.slice(0, visibleCount);
+                    const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
                     
-                    const labelX = Math.max(50, currentX - 300);
-                    const labelY = currentY + 50;
+                    // Calculate nice round increments (powers of 2: 1, 2, 4, 8, 16, etc.)
+                    const getNextPower = (n: number) => {
+                      if (n <= 0) return 1;
+                      return Math.pow(2, Math.ceil(Math.log2(n)));
+                    };
                     
-                    return (
-                      <g>
-                        <text x={labelX} y={labelY} fill="#999" fontSize="14" fontFamily="monospace">TIME →</text>
-                        <text x={labelX - 80} y={labelY - 200} fill="#999" fontSize="14" fontFamily="monospace" transform="rotate(-90, 0, 0)">THREAT LEVEL ↑</text>
-                      </g>
-                    );
-                  })()}
-
-                  {/* MOTION TRAIL - Shows path history with smooth time-based animation */}
-                  {(() => {
-                    if (positionTrail.length < 2) return null;
-
-                    // Get visible points only (animated reveal)
-                    const visiblePoints = positionTrail.slice(0, visibleTrailPoints);
+                    const maxDisplay = getNextPower(Math.ceil(maxYActual));
+                    const increments = maxDisplay <= 8 ? maxDisplay / 4 : maxDisplay / 8;
                     
-                    // Calculate X positions based on time/index (wider graph - 10px per second)
+                    // Draw Y-axis labels with actual values, but scaled for display
+                    const SCALE_FACTOR = 600 / maxDisplay; // Scale to fit 600 height
+                    const labels = [];
+                    for (let i = 0; i <= maxDisplay; i += increments) {
+                      const yScaled = i * SCALE_FACTOR; // Scale Y for display
+                      labels.push(
+                        <g key={`y-label-${i}`}>
+                          <line x1="-50" y1={yScaled} x2="-45" y2={yScaled} stroke="#999" strokeWidth="1" />
+                          <text 
+                            x="-60" 
+                            y={yScaled + 3} 
+                            fill="#999" 
+                            fontSize="10" 
+                            fontFamily="monospace"
+                            textAnchor="end"
+                          >
+                            {i}
+                          </text>
+                        </g>
+                      );
+                    }
+                    
+                    // Calculate X positions and scale Y positions
                     const timeBasedPoints = visiblePoints.map((point, idx) => ({
-                      ...point,
-                      x: idx * 10 // Each point is 10px wide on X-axis (represents 1 second)
+                      x: idx * 10, // Each point is 10px wide on X-axis (represents 1 second)
+                      y: point.y * SCALE_FACTOR, // Scale Y to fit graph height
+                      originalY: point.y,
+                      sensitivity: point.sensitivity,
+                      timestamp: point.timestamp
                     }));
 
                     if (timeBasedPoints.length < 2) return null;
-
+                    
                     return (
                       <>
+                        {/* Y-axis labels */}
+                        {labels}
+                        
                         {/* Trail path */}
                         <path
                           d={timeBasedPoints.map((point, idx) =>
@@ -2039,47 +2060,75 @@ export default function MapView2D({ selectedCountry, onGameOver }: MapView2DProp
                       </>
                     );
                   })()}
+                  
+                  {/* Axis titles */}
+                  {(() => {
+                    const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
+                    if (visibleCount === 0) return null;
+                    
+                    const currentX = (visibleCount - 1) * 10;
+                    const labelX = Math.max(50, currentX - 300);
+                    
+                    return (
+                      <g>
+                        <text x={labelX} y="650" fill="#999" fontSize="14" fontFamily="monospace">TIME (s) →</text>
+                        <text x="-120" y="300" fill="#999" fontSize="14" fontFamily="monospace" transform="rotate(-90, 0, 0)">THREAT COUNT ↑</text>
+                      </g>
+                    );
+                  })()}
 
                   {/* CURRENT POSITION - Locked in center with crosshair */}
                   {(() => {
                     const currentPoint = positionTrail[positionTrail.length - 1];
                     if (!currentPoint) return null;
 
-                    // Calculate current X based on visible points count
+                    // Calculate current X and scaled Y
                     const visibleCount = Math.min(visibleTrailPoints, positionTrail.length);
                     const currentX = (visibleCount - 1) * 10;
+                    
+                    // Calculate max Y and scale factor (same logic as in trail)
+                    const visiblePoints = positionTrail.slice(0, visibleCount);
+                    const maxYActual = Math.max(...visiblePoints.map(p => p.y), 1);
+                    const getNextPower = (n: number) => {
+                      if (n <= 0) return 1;
+                      return Math.pow(2, Math.ceil(Math.log2(n)));
+                    };
+                    const maxDisplay = getNextPower(Math.ceil(maxYActual));
+                    const SCALE_FACTOR = 600 / maxDisplay;
+                    
+                    const currentYScaled = currentPoint.y * SCALE_FACTOR;
 
                     return (
                       <>
                         {/* Larger crosshair targeting reticle */}
-                        <circle cx={currentX} cy={currentPoint.y} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
+                        <circle cx={currentX} cy={currentYScaled} r="40" fill="none" stroke="#00ffff" strokeWidth="3" opacity="0.6">
                           <animate attributeName="r" values="40;50;40" dur="2s" repeatCount="indefinite" />
                           <animate attributeName="opacity" values="0.6;0.3;0.6" dur="2s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={currentX} cy={currentPoint.y} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
+                        <circle cx={currentX} cy={currentYScaled} r="25" fill="none" stroke="#00ffff" strokeWidth="2" opacity="0.8" />
 
                         {/* Crosshair lines */}
-                        <line x1={currentX - 55} y1={currentPoint.y} x2={currentX - 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentX + 55} y1={currentPoint.y} x2={currentX + 28} y2={currentPoint.y} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentX} y1={currentPoint.y - 55} x2={currentX} y2={currentPoint.y - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
-                        <line x1={currentX} y1={currentPoint.y + 55} x2={currentX} y2={currentPoint.y + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX - 55} y1={currentYScaled} x2={currentX - 28} y2={currentYScaled} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX + 55} y1={currentYScaled} x2={currentX + 28} y2={currentYScaled} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX} y1={currentYScaled - 55} x2={currentX} y2={currentYScaled - 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
+                        <line x1={currentX} y1={currentYScaled + 55} x2={currentX} y2={currentYScaled + 28} stroke="#00ffff" strokeWidth="4" opacity="0.8" />
 
                         {/* Central point - pulsing */}
-                        <circle cx={currentX} cy={currentPoint.y} r="12" fill="#ffff00" opacity="0.9">
+                        <circle cx={currentX} cy={currentYScaled} r="12" fill="#ffff00" opacity="0.9">
                           <animate attributeName="r" values="12;18;12" dur="1s" repeatCount="indefinite" />
                         </circle>
-                        <circle cx={currentX} cy={currentPoint.y} r="6" fill="#ffffff" />
+                        <circle cx={currentX} cy={currentYScaled} r="6" fill="#ffffff" />
 
                         {/* Position info label */}
                         <text 
                           x={currentX + 80} 
-                          y={currentPoint.y} 
+                          y={currentYScaled} 
                           fill="#00ffff" 
                           fontSize="16" 
                           fontFamily="monospace" 
                           fontWeight="bold"
                         >
-                          Time: {(currentX / 10).toFixed(0)}s | Y: {(currentPoint.y).toFixed(0)}
+                          Time: {(currentX / 10).toFixed(0)}s | Threats: {currentPoint.y}
                         </text>
                       </>
                     );
